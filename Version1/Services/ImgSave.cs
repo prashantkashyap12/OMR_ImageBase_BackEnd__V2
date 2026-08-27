@@ -82,7 +82,7 @@ namespace SQCScanner.Services
             return new JsonResult(res);
         }
 
-        public async Task<IActionResult> userprofile(string empId, IFormFile imagepath)
+        public async Task<string> userprofile(string empId, IFormFile imagepath)
         {
             dynamic res;
             string folderPath = Path.Combine(Directory.GetCurrentDirectory(), "ProfilePicture", empId);
@@ -116,7 +116,7 @@ namespace SQCScanner.Services
                     state = true,
                     message = imagepath
                 };
-                return new JsonResult(res);
+                return imagepath.FileName;
             }
             else
             {
@@ -125,8 +125,10 @@ namespace SQCScanner.Services
                     state = false,
                     message = "File Not Saved"
                 };
-                return new JsonResult(res);
+                return res.message;
             }
         }
+    
+    
     }
 }

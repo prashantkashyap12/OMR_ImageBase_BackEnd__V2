@@ -11,10 +11,11 @@ using OpenCvSharp;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Cors;
 using System.Text;
+using Microsoft.Data.SqlClient;
+using Dapper;
 
 namespace Version1.Controllers
 {
-    [Authorize]
     [EnableCors("AllowAnyOrigin")]
     [Route("api/[controller]")]
     [ApiController]
@@ -29,6 +30,7 @@ namespace Version1.Controllers
         private readonly table_gen _recordTable;
         private readonly ImgSave _imgSave;
         private readonly FindCordinationClass _FindCordinationClass;
+        private readonly IConfiguration _Configuration;  
 
         public OmrProcessingController(
             OmrProcessingService omrService,
@@ -39,7 +41,8 @@ namespace Version1.Controllers
             RecordSave recordSave,
             table_gen recordTable,
             ImgSave imgSave,
-            FindCordinationClass FindCordinationClass)
+            FindCordinationClass FindCordinationClass,
+            IConfiguration Configuration)
             {
             _omrService = omrService;
             _env = env;
@@ -50,6 +53,7 @@ namespace Version1.Controllers
             _SaveOnly = recordSave;
             _imgSave = imgSave;
             _FindCordinationClass = FindCordinationClass;
+            _Configuration = Configuration;
                 if (controlService == null)
                 {
                     throw new ArgumentNullException(nameof(controlService), "OmrProcessingControlService is not injected properly.");
@@ -218,7 +222,6 @@ namespace Version1.Controllers
             return Ok("Processing resumed.");
         }
 
-
         [HttpPost("stop-processing")]
         public IActionResult StopProcessing()
         {
@@ -275,6 +278,53 @@ namespace Version1.Controllers
 
                 return Ok(headers);
             }
+        }
+
+        [HttpGet("DataResponce")]
+        public async Task<IActionResult> DataResponce(int templateId, int PageNo, int PageSize)
+        {
+            string tableName = $"Template_{templateId}";
+            dynamic res;
+            dynamic dataResp = "";
+            int value = 0;
+            try
+            {
+                using (var _conn = new SqlConnection(_Configuration.GetConnectionString("dbc")))
+                {
+                    _conn.Open();
+                    var ReturnDetails = _dbContext.ImgTemplate.FirstOrDefault(x => x.Id == templateId);
+                    string checkTableSql = @"SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME LIKE @TableName";
+                    var exists = _conn.QueryFirstOrDefault(checkTableSql, new { TableName = tableName + "%" });
+                    if (exists != null)
+                    {
+                        string querry = $"SELECT * FROM [{exists.TABLE_NAME}] ORDER BY Id  OFFSET ({PageNo} - 1) * {PageSize} ROWS FETCH NEXT {PageSize} ROWS ONLY";
+                        dataResp = _conn.Query(querry);
+
+
+                        value = _conn.QuerySingle<int>($"SELECT count(*) FROM [{exists.TABLE_NAME}]");
+
+                    }
+                    else
+                    {
+                        dataResp = "Not Found Record";
+                    }
+                }
+                res = new
+                {
+                    status = true,
+                    Record = dataResp,
+                    Total = value
+                };
+            }
+            catch (Exception ex)
+            {
+                res = new
+                {
+                    status = false,
+                    Messages = ex.Message
+                };
+            }
+            return Ok(res);
         }
 
     }
