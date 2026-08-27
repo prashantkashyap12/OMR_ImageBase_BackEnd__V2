@@ -1,6 +1,7 @@
 ﻿using System.Data;
 using System.IdentityModel.Tokens.Jwt;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Security.Claims;
 using System.Text;
 using System.Threading.Tasks;
@@ -8,6 +9,7 @@ using Azure.Core;
 using Dapper;
 using DocumentFormat.OpenXml.Drawing.Charts;
 using DocumentFormat.OpenXml.Spreadsheet;
+using DocumentFormat.OpenXml.Wordprocessing;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Cors;
 using Microsoft.AspNetCore.Http;
@@ -330,6 +332,7 @@ namespace SQCScanner.Controllers
                         {
                             var waletUpdate = await _conn.ExecuteAsync($"insert into Wa" +
                                 $"llet (Uid, TimeDate, CreditLimit, reneration_results, recognition_credits_total, generation_results_total) values (@empId, @UpdatedDate, '0', 0, 0, 0)", new { empId = empId, UpdatedDate = DateTime.Now });
+                            var dataModule = await _conn.ExecuteAsync($"insert into empModel2 (EmpId) values ('{empId}')");
                         }
                         res = new
                         {
@@ -469,12 +472,28 @@ namespace SQCScanner.Controllers
         // Retireve API --  All Record
         [HttpPost]
         [Route("GetList")]
-        public async Task<IActionResult> GetList()
+        public async Task<IActionResult> GetList(getList model)
         {
             dynamic res;
             try {
-                var empList = _DbContext.empModels.ToList();
-                _logger.LogInformation($"Get Succsfully ={empList}");
+                    var empList = _DbContext.empModels.AsQueryable();
+                    if (!string.IsNullOrWhiteSpace(model.role))
+                    {
+                        empList = empList.Where(rol => rol.role == model.role);
+                    }
+                    if (!string.IsNullOrWhiteSpace(model.search))
+                    {
+                        empList = empList.Where(x => x.EmpEmail.Contains(model.search) || x.EmpName.Contains(model.search));
+                    }
+                    if(!string.IsNullOrWhiteSpace(model.isLogg))
+                    {
+                        bool isLoggedIn = bool.Parse(model.isLogg);
+                        empList = empList.Where(x => x.IsLoggedIn == isLoggedIn);
+                    }
+                    var records = empList.OrderBy(x=>x.Id).Skip((model.PageNumber-1)*model.range).Take(model.range).ToList();
+                    Console.WriteLine(records.Count);
+                    
+                    var empListCount = _DbContext.empModels.Count();
                 if (!empList.Any())
                 {
                     res = new
@@ -487,8 +506,9 @@ namespace SQCScanner.Controllers
                 {
                     res = new
                     {
-                        result = empList,
-                        state = true
+                        result = records,
+                        state = true,
+                        Count = (int)Math.Ceiling((double)empListCount / model.range)
                     };
                 }
             }
@@ -502,6 +522,14 @@ namespace SQCScanner.Controllers
                 };
             }
             return Ok(res);
+        }
+        public class getList
+        {
+            public int PageNumber { get; set; } 
+            public int range { get; set; }
+            public string isLogg { get; set; }
+            public string role { get; set; }
+            public string search { get; set; }
         }
 
         // Delete API  -- All Record
@@ -700,7 +728,7 @@ namespace SQCScanner.Controllers
                     _logger.LogTrace("Method Started");
                     var resp = _conn.QueryFirstOrDefault($"select * from empModel2 where EmpId = {model.EmpId}");
                     var already = _DbContext.empModels.FirstOrDefault(a => a.EmpId == model.EmpId);
-                    if (already != null)
+                    if (resp == null)
                     {
                         res = new
                         {
@@ -712,18 +740,21 @@ namespace SQCScanner.Controllers
                     {
                         //userprofile
                         var dataData = await _imgSave.userprofile(model.EmpId, model.Updateimage);
-                        var sql = @"INSERT INTO empModel2 (EmpId, imageName, text1, text2, text3, text4, text5, text6)
-                        VALUES (@EmpId, @Updateimage, @text1, @text2, @text3, @text4, @text5, @text6)";
+                        Console.WriteLine(dataData);
+                        var sql = @"update empModel2 SET 
+                                    imageName=@UpdateimageName, DOB=@DOB, Gander=@Gander, address=@address, city=@city, state=@state, pin=@pin, country=@country) 
+                                    where EmpId=@EmpId";
                         var RespData = _conn.Execute(sql, new
                         {
                             model.EmpId,
-                            model.Updateimage,
-                            model.text1,
-                            model.text2,
-                            model.text3,
-                            model.text4,
-                            model.text5,
-                            model.text6
+                            dataData,
+                            model.DOB,
+                            model.Gander,
+                            model.address,
+                            model.city,
+                            model.state,
+                            model.pin,
+                            model.country
                         });
                         res = new
                         {
@@ -750,12 +781,14 @@ namespace SQCScanner.Controllers
         {
             public string EmpId { set; get; } = "";
             public IFormFile Updateimage { get; set; }
-            public string text1 { get; set; } = "";
-            public string text2 { get; set; } = "";
-            public string text3 { get; set; } = "";
-            public string text4 { get; set; } = "";     
-            public string text5 { get; set; } = ""; 
-            public string text6 { get; set; } = "";
+            public string DOB { get; set; } = "";
+            public string Gander { get; set; } = "";
+            public string address { get; set; } = "";
+            public string city { get; set; } = "";     
+            public string state { get; set; } = ""; 
+            public string pin { get; set; } = "";
+            public string country { get; set; } = "";
+
         }
 
     }
