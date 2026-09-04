@@ -476,7 +476,16 @@ namespace SQCScanner.Controllers
         {
             dynamic res;
             try {
-                    var empList = _DbContext.empModels.AsQueryable();
+                //var handler = new JwtSecurityTokenHandler();
+                //var expiredToken = Request.Headers["Authorization"].FirstOrDefault()?.Replace("Bearer ", "").Trim();
+                //if (string.IsNullOrWhiteSpace(expiredToken))
+                //{
+                //    return Unauthorized(new { message = "No token provided" });
+                //}
+                //var jwtToken1 = handler.ReadJwtToken(expiredToken);
+                //var empId = jwtToken1.Claims.FirstOrDefault(c => c.Type == "nameid")?.Value;
+                //var already = _DbContext.empModels.FirstOrDefault(a => a.EmpId == model.empId);
+                var empList = _DbContext.empModels.AsQueryable();
                     if (!string.IsNullOrWhiteSpace(model.role))
                     {
                         empList = empList.Where(rol => rol.role == model.role);
@@ -508,7 +517,8 @@ namespace SQCScanner.Controllers
                     {
                         result = records,
                         state = true,
-                        Count = (int)Math.Ceiling((double)empListCount / model.range)
+                        Count = (int)Math.Ceiling((double)empListCount / model.range),
+                      
                     };
                 }
             }
@@ -641,7 +651,6 @@ namespace SQCScanner.Controllers
             try
             { 
                 var token = string.Empty;
-                //checked validation
                 if (string.IsNullOrWhiteSpace(uname) || string.IsNullOrWhiteSpace(pwd))
                 {
                     res = new
@@ -714,82 +723,230 @@ namespace SQCScanner.Controllers
         }
 
         // Update Profile
+        //[HttpPost]
+        //[Route("updateProfiles")]
+        //public async Task<IActionResult> updateProfiles(updateProfile model)
+        //{
+        //    dynamic res;
+
+        //    try
+        //    {
+        //        using (var _conn = new SqlConnection(_connectionString))
+        //        {
+        //            _conn.Open();
+        //            _logger.LogTrace("Method Started");
+        //            var handler = new JwtSecurityTokenHandler();
+        //            var expiredToken = Request.Headers["Authorization"].FirstOrDefault()?.Replace("Bearer ", "").Trim();
+        //            if (string.IsNullOrWhiteSpace(expiredToken))
+        //            {
+        //                return Unauthorized(new { message = "No token provided" });
+        //            }
+        //            var jwtToken1 = handler.ReadJwtToken(expiredToken);
+        //            var empId = jwtToken1.Claims.FirstOrDefault(c => c.Type == "nameid")?.Value;
+        //            var resp = _conn.QueryFirstOrDefault($"select * from empModels where EmpId = {empId}");
+        //            var already = _DbContext.empModels.FirstOrDefault(a => a.EmpId == empId);
+        //            string[] data = new string[10];
+        //            if (resp == null)
+        //            {
+        //                res = new
+        //                {
+        //                    status = true,
+        //                    message = "User Not Found"
+        //                };
+        //            }
+        //            else
+        //            {
+        //                var dataData = await _imgSave.userprofile(empId, model.Updateimage);
+        //                Console.WriteLine(already);
+        //                data[0] = model.firstName ?? already.EmpName;
+        //                data[1] = model.lastName ?? already.EmpLastName;
+        //                data[2] = model.contact ?? already.contact;
+        //                data[3] = "";
+        //                data[4] = model.DOB ?? already.DateOfBirth;
+        //                data[5] = model.gender ?? already.gender;
+        //                data[6] = model.address ?? already.address;
+        //                data[7] = model.city ?? already.city;
+        //                data[8] = model.state ?? already.state;
+        //                data[9] = model.pin ?? already.zip;
+        //                data[10] = model.country ?? already.contory;
+
+
+        //                Console.WriteLine(data);
+
+        //                string name = $"{model.firstName} {model.lastName}";
+        //                Console.WriteLine(dataData);
+        //                var sql = @$"UPDATE empModels SET EmpName = '{data[0]} {data[1]}', contact = '{data[2]}', profileName = '{data[3]}', DateOfBirth = '{data[4]}', gender = '{data[5]}', address = '{data[6]}', city = '{data[7]}', state = '{data[8]}', zip = '{data[9]}', contory = '{data[10]}' WHERE EmpId = '{empId}'";
+        //                var RespData = _conn.Execute(sql);
+        //                res = new
+        //                {
+        //                    status = true,
+        //                    message = "User update"
+        //                };
+        //            }
+        //            _conn.Close();
+        //        }
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        res = new
+        //        {
+        //            status = false,
+        //            message = ex.Message
+        //        };
+
+        //    }
+        //    return Ok(res);
+        //}
+
         [HttpPost]
         [Route("updateProfiles")]
-        public async Task<IActionResult> updateProfiles(updateProfile model)
+        public async Task<IActionResult> updateProfiles([FromForm] updateProfile model)
         {
-            dynamic res;
-
             try
             {
-                using (var _conn = new SqlConnection(_connectionString))
+                using var conn = new SqlConnection(_connectionString);
+                await conn.OpenAsync();
+                _logger.LogTrace("Method Started");
+                var handler = new JwtSecurityTokenHandler();
+                var token = Request.Headers["Authorization"].FirstOrDefault()?.Replace("Bearer ", "").Trim();
+                if (string.IsNullOrWhiteSpace(token))
+                    return Unauthorized(new { message = "No token provided" });
+
+                var jwtToken = handler.ReadJwtToken(token);
+
+                var empId = jwtToken.Claims
+                    .FirstOrDefault(c => c.Type == "nameid")?.Value;
+
+                if (string.IsNullOrWhiteSpace(empId))
                 {
-                    _conn.Open();
-                    _logger.LogTrace("Method Started");
-                    var resp = _conn.QueryFirstOrDefault($"select * from empModel2 where EmpId = {model.EmpId}");
-                    var already = _DbContext.empModels.FirstOrDefault(a => a.EmpId == model.EmpId);
-                    if (resp == null)
-                    {
-                        res = new
-                        {
-                            status = true,
-                            message = "User Not Found"
-                        };
-                    }
-                    else
-                    {
-                        //userprofile
-                        var dataData = await _imgSave.userprofile(model.EmpId, model.Updateimage);
-                        Console.WriteLine(dataData);
-                        var sql = @"update empModel2 SET 
-                                    imageName=@UpdateimageName, DOB=@DOB, Gander=@Gander, address=@address, city=@city, state=@state, pin=@pin, country=@country) 
-                                    where EmpId=@EmpId";
-                        var RespData = _conn.Execute(sql, new
-                        {
-                            model.EmpId,
-                            dataData,
-                            model.DOB,
-                            model.Gander,
-                            model.address,
-                            model.city,
-                            model.state,
-                            model.pin,
-                            model.country
-                        });
-                        res = new
-                        {
-                            status = true,
-                            message = RespData
-                        };
-                    }
-                    _conn.Close();
+                    return Unauthorized(new { message = "Invalid token" });
                 }
+
+                // Get existing employee 
+                var already = await _DbContext.empModels.FirstOrDefaultAsync(a => a.EmpId == empId);
+
+                if (already == null)
+                {
+                    return Ok(new
+                    {
+                        status = true,
+                        message = "User Not Found"
+                    });
+                }
+
+                // Save image 
+                var dataData = "";
+                //string folderPath = Path.Combine("wwwroot", "ProfilePicture", empId, dataData);
+                var profileName = "";
+                string folderPath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "ProfilePicture", empId);
+
+                if (model.Updateimage != null)
+                {
+                    dataData = await _imgSave.userprofile(empId, model.Updateimage);
+                    profileName = string.IsNullOrWhiteSpace(dataData) ? already.profileName : dataData;
+                }
+                else
+                {
+                    dataData = "";
+                    string[] files = Directory.GetFiles(folderPath);
+                    foreach (var data in files)
+                    {
+                        System.IO.File.Delete(data);
+                    }
+                }
+
+                var firstName = string.IsNullOrWhiteSpace(model.firstName) ? (model.firstName == null ? "" : "") : model.firstName;
+                var EmpLastName = string.IsNullOrWhiteSpace(model.lastName) ? (model.lastName == null ? "" : "") : model.lastName;
+                var contact = string.IsNullOrWhiteSpace(model.contact) ? (model.contact == null ? "" : "") : model.contact;
+                var dob = string.IsNullOrWhiteSpace(model.DOB) ? (model.DOB == null ? "" : "") : model.DOB;
+                var gender = string.IsNullOrWhiteSpace(model.gender) ? (model.gender == null ? "" : "") : model.gender;
+                var address = string.IsNullOrWhiteSpace(model.address) ? (model.address == null ? "" : "") : model.address;
+                var city = string.IsNullOrWhiteSpace(model.city) ? (model.city == null ? "" : "") : model.city;
+                var state = string.IsNullOrWhiteSpace(model.state) ? (model.state == null ? "" : "") : model.state;
+                var pin = string.IsNullOrWhiteSpace(model.pin) ? (model.pin == null ? "" : "") : model.pin;
+                var country = string.IsNullOrWhiteSpace(model.country) ? (model.country == null ? "" : "") : model.country;
+
+
+
+                //var lastName = model.lastName ?? already.EmpLastName;
+                //var contact = model.contact ?? already.contact;
+                //var dob = model.DOB ?? already.DateOfBirth;
+                //var gender = model.gender ?? already.gender;
+                //var address = model.address ?? already.address;
+                //var city = model.city ?? already.city;
+                //var state = model.state ?? already.state;
+                //var pin = model.pin ?? already.zip;
+                //var country = model.country ?? already.contory;
+
+                var sql = @"UPDATE empModels
+                SET
+                    EmpName = @EmpName,
+                    EmpLastName = @EmpLastName,
+                    contact = @contact,
+                    profileName = @profileName,
+                    DateOfBirth = @DateOfBirth,
+                    gender = @gender,
+                    address = @address,
+                    city = @city,
+                    state = @state,
+                    zip = @zip,
+                    contory = @contory
+                WHERE EmpId = @EmpId";
+
+                var parameters = new
+                {
+                    EmpName = firstName,
+                    EmpLastName = EmpLastName,
+                    contact,
+                    profileName,
+                    DateOfBirth = dob,
+                    gender,
+                    address,
+                    city,
+                    state,
+                    zip = pin,
+                    contory = country,
+                    EmpId = empId
+                };
+
+                var rows = await conn.ExecuteAsync(sql, parameters);
+
+                return Ok(new
+                {
+                    userProfilePath = folderPath,
+                    status = true,
+                    message = "User updated",
+                    rows
+                });
             }
             catch (Exception ex)
             {
-                res = new
+                _logger.LogError(ex, "Error while updating profile");
+
+                return Ok(new
                 {
                     status = false,
                     message = ex.Message
-                };
-
+                });
             }
-            return Ok(res);
         }
 
         public class updateProfile
         {
-            public string EmpId { set; get; } = "";
-            public IFormFile Updateimage { get; set; }
-            public string DOB { get; set; } = "";
-            public string Gander { get; set; } = "";
-            public string address { get; set; } = "";
-            public string city { get; set; } = "";     
-            public string state { get; set; } = ""; 
-            public string pin { get; set; } = "";
-            public string country { get; set; } = "";
-
+            public string? firstName { get; set; }
+            public string? lastName { get; set; }
+            public string? contact { get; set; }
+            public IFormFile? Updateimage { get; set; } 
+            public string? DOB { get; set; }
+            public string? gender { get; set; } 
+            public string? address { get; set; }
+            public string? city { get; set; }     
+            public string? state { get; set; } 
+            public string? pin { get; set; }
+            public string? country { get; set; }
         }
-
+    
+    
+    
     }
 }

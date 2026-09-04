@@ -21,7 +21,16 @@ namespace SQCScanner.Services
                     new Claim(ClaimTypes.Email, emp.EmpEmail),
                     new Claim(ClaimTypes.Role, emp.role),
                     new Claim("Phone", emp.contact),
-                    new Claim("refranceId",emp.RefranceId)
+                    new Claim("refranceId",emp.RefranceId),
+                    new Claim("DateOfBirth", emp.DateOfBirth),
+                    new Claim("gender", emp.gender),
+                    new Claim("address", emp.address),
+                    new Claim("city", emp.city),
+                    new Claim("state", emp.state),
+                    new Claim("pin", emp.zip),
+                    new Claim("contory", emp.contory),
+                    new Claim("profileImage", emp.profileName),
+                    new Claim ("LastName", emp.EmpLastName)
                 }),
                 Expires = DateTime.UtcNow.AddHours(24),
                 Issuer = "DotNet_PrashantKashyap",

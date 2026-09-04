@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Cors;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Newtonsoft.Json.Linq;
@@ -28,11 +29,18 @@ namespace SQCScanner.Controllers
         private readonly IWebHostEnvironment _env;
         private readonly ApplicationDbContext _dbContext;
         private readonly ILogger _logger;
-        public TemplateController(IWebHostEnvironment env, ApplicationDbContext dbContext, ILogger<TemplateController> logger)
+        private readonly IConfiguration _configuration;
+        public TemplateController(IWebHostEnvironment env, ApplicationDbContext dbContext, ILogger<TemplateController> logger, IConfiguration configuration)
         {
             _env = env;
             _dbContext = dbContext;
             _logger = logger;
+            _configuration = configuration;
+        }
+
+        private SqlConnection getConnection()
+        {
+            return new SqlConnection(_configuration.GetConnectionString("dbc"));
         }
 
         [HttpPost]
@@ -535,5 +543,45 @@ namespace SQCScanner.Controllers
             }
         }
 
+
+        // TestCreation
+        [HttpPost]
+        [Route("CreateTest")]
+        public async Task<IActionResult> CreateTest(string tempId, string testName, string testId, string notes)
+        {
+            dynamic res;
+            try
+            {
+                using (SqlConnection connection = getConnection())
+                {
+                    connection.OpenAsync();
+                    using (SqlCommand command = new SqlCommand("TestCases_Proc", connection))
+                    {
+                        command.CommandType = System.Data.CommandType.StoredProcedure;
+                        command.Parameters.AddWithValue("@Action", "CREATE");
+                        command.Parameters.AddWithValue("@TempId", (object?)tempId ?? DBNull.Value);
+                        command.Parameters.AddWithValue("@TestName", (object?)testName ?? DBNull.Value);
+                        command.Parameters.AddWithValue("@TestId", (object?)testId ?? DBNull.Value);
+                        command.Parameters.AddWithValue("@Notes", (object?)notes ?? DBNull.Value);
+
+                        await command.ExecuteNonQueryAsync();
+                        res = new { 
+                            state = true, 
+                            message = "Test created successfully" 
+                        };
+                    }
+                }
+            }
+            catch(Exception ex)
+            {
+                res = new { state = false, message = ex.Message };
+            }
+
+            return Ok(res);
+        }
+    
+    
+    
+    
     }
 }

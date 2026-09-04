@@ -32,6 +32,7 @@ builder.Services.AddScoped<table_gen>();
 builder.Services.AddScoped<ImgSave>();
 builder.Services.AddScoped<FindCordinationClass>();
 builder.Services.AddScoped<BarCodeScaning>();
+builder.Services.AddScoped<CharReadingClass>();
 builder.Services.AddScoped<RealtimeCSV_Rec>();
 builder.Services.AddSingleton<OmrProcessingControlService>();
 builder.Services.AddSingleton<WebSocketConnectionManager>();
@@ -98,6 +99,17 @@ app.UseStaticFiles(new StaticFileOptions
         ctx.Context.Response.Headers.Append("Access-Control-Allow-Origin", "*");
     }
 });
+app.UseStaticFiles(new StaticFileOptions
+{
+    FileProvider = new PhysicalFileProvider(
+        Path.Combine(Directory.GetCurrentDirectory(), "wwwroot")),
+    RequestPath = "/wwwroot",
+    OnPrepareResponse = ctx =>
+    {
+        ctx.Context.Response.Headers.Append("Access-Control-Allow-Origin", "*");
+    }
+});
+
 
 // wwwroot ke liye CORS header
 app.UseStaticFiles(new StaticFileOptions

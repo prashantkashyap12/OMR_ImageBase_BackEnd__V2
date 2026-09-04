@@ -14,11 +14,12 @@ namespace SQCScanner.Modal
     {
         public static string ReadBarcode(Image<Rgba32> bubble)
         {
+
             // Step-1: ImageSharp → BMP MemoryStream
             using var ms = new MemoryStream();
             bubble.SaveAsBmp(ms);
             ms.Seek(0, SeekOrigin.Begin);
-
+            
             using var bitmap = new System.Drawing.Bitmap(ms);
 
             // Step-2: Convert Bitmap → Mat

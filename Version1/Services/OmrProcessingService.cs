@@ -36,6 +36,7 @@ using ZXing;
 using Microsoft.EntityFrameworkCore.Metadata.Internal;
 using OpenCvSharp.Aruco;
 using CvSize = OpenCvSharp.Size;
+using SQCScanner.Services;
 
 namespace Version1.Services
 {
@@ -498,6 +499,7 @@ namespace Version1.Services
                         // move bar code error files
                         result.FieldResults["BarCode"] = barcodeValue;
                     }
+                   
                     else if(fieldType == "lithocode")
                     {
                         var Lithodcode="";

@@ -85,7 +85,7 @@ namespace SQCScanner.Services
         public async Task<string> userprofile(string empId, IFormFile imagepath)
         {
             dynamic res;
-            string folderPath = Path.Combine(Directory.GetCurrentDirectory(), "ProfilePicture", empId);
+            string folderPath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "ProfilePicture", empId);
             if (!Directory.Exists(folderPath))
             {
                 Directory.CreateDirectory(folderPath);
