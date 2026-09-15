@@ -43,10 +43,12 @@ namespace Version1.Services
     public class OmrProcessingService
     {
         private readonly ApplicationDbContext _context;
+        private readonly ILogger _ILogger;
 
-        public OmrProcessingService(ApplicationDbContext context)
+        public OmrProcessingService(ApplicationDbContext context, ILogger<OmrProcessingService> iLogger)
         {
             _context = context;
+            _ILogger = iLogger;
         }
 
         public List<Point2f> demoImg = new List<Point2f>();
@@ -55,10 +57,7 @@ namespace Version1.Services
         public async Task<OmrResult> ProcessOmrSheet(string imagePath, string templatePath, string imageUrl, int ser, string userName)
         {
 
-
-
             string debugging = Path.GetFileName(Path.GetDirectoryName(imagePath));
-
             string alignedImages = $"wFileManager/ScanResult/TemplateImages/{userName}/{debugging}";
             Directory.CreateDirectory(alignedImages);
             var result = new OmrResult                         // Make model get Img name and make Dictionary <key, value>
@@ -127,18 +126,6 @@ namespace Version1.Services
             //var FindRotated = await RotateAndCheckMarkers(matInput, template2);
             Mat RotatedFinal = new Mat();
             RotatedFinal = matInput;         //-- Jab bhi kabhi hum work karnege wo usko "RotatedFinal"
-            //if (result.Success)
-            //{
-            //    RotatedFinal = FindRotated.FinalImage;
-            //    string debug2Path = Path.Combine(alignedImages, $"FinalRotate_{Guid.NewGuid()}.png");
-            //    //RotatedFinal.SaveImage(debug2Path);
-            //}
-            //else
-            //{
-            //    result.Success = false;
-            //    result.FieldResults["Report"] = "Image Is not Rotated ";
-            //    return result;
-            //}
 
             // Demo Image cordications
             var MatImgOut = await AlignWithTemplate(demoImg, template2, "demo");
