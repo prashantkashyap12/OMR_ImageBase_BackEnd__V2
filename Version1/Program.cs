@@ -14,6 +14,8 @@ using System.Security.Claims;
 using SixLabors.ImageSharp;
 using SQCScanner.Modal;
 using Serilog;
+using Microsoft.AspNetCore.Http.Features;
+using Microsoft.OpenApi.Models;
 
 var builder = WebApplication.CreateBuilder(args);
 Log.Logger = new LoggerConfiguration().ReadFrom.Configuration(builder.Configuration).CreateLogger();
@@ -31,6 +33,7 @@ builder.Services.AddScoped<RecordSave>();
 builder.Services.AddScoped<table_gen>();
 builder.Services.AddScoped<ImgSave>();
 builder.Services.AddScoped<FindCordinationClass>();
+
 builder.Services.AddScoped<BarCodeScaning>();
 builder.Services.AddScoped<CharReadingClass>();
 builder.Services.AddScoped<RealtimeCSV_Rec>();
@@ -47,6 +50,18 @@ builder.Services.AddControllers();            // Add Base controller.
 builder.Services.AddEndpointsApiExplorer();   // Make meta data for get/post for swagger
 builder.Services.AddSwaggerGen();             // Gen UI Swagger
 builder.Services.AddHttpClient();
+
+builder.Services.Configure<FormOptions>(options =>
+{
+    options.MultipartBodyLengthLimit = 3_221_225_472; // 3 GB
+    options.ValueLengthLimit = int.MaxValue;
+    options.MultipartHeadersLengthLimit = int.MaxValue;
+});
+builder.WebHost.ConfigureKestrel(serverOptions =>
+{
+    serverOptions.Limits.MaxRequestBodySize = 3_221_225_472; // 3 GB
+});
+
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowAnyOrigin", policy =>
@@ -56,6 +71,7 @@ builder.Services.AddCors(options =>
               .AllowAnyMethod();
     });
 });
+
 
 
 // Syncfusion Key Add

@@ -476,16 +476,7 @@ namespace SQCScanner.Controllers
         {
             dynamic res;
             try {
-                //var handler = new JwtSecurityTokenHandler();
-                //var expiredToken = Request.Headers["Authorization"].FirstOrDefault()?.Replace("Bearer ", "").Trim();
-                //if (string.IsNullOrWhiteSpace(expiredToken))
-                //{
-                //    return Unauthorized(new { message = "No token provided" });
-                //}
-                //var jwtToken1 = handler.ReadJwtToken(expiredToken);
-                //var empId = jwtToken1.Claims.FirstOrDefault(c => c.Type == "nameid")?.Value;
-                //var already = _DbContext.empModels.FirstOrDefault(a => a.EmpId == model.empId);
-                var empList = _DbContext.empModels.AsQueryable();
+                    var empList = _DbContext.empModels.AsQueryable();
                     if (!string.IsNullOrWhiteSpace(model.role))
                     {
                         empList = empList.Where(rol => rol.role == model.role);
