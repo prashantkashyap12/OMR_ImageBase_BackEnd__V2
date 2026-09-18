@@ -244,8 +244,7 @@ namespace SQCScanner.Controllers
                             // ****   Create OTP -- OPEN     ****
                             var SixOTP = await _emailSendClass.emailRec(email);
                             var Otp = SixOTP.ToString();
-
-                            var query2 = @$"insert into empModels ([EmpName],[EmpEmail],[password],[contact],[role], [EmpId], [UserOtp],[refranceId]) values('{name}', '{email}','{pwd}', '{cont}', '{role}', {empId}, '{Otp}','{refranceId}'); 
+                            var query2 = @$"insert into empModels ([EmpName],[EmpEmail],[password],[contact],[role], [EmpId], [UserOtp],[refranceId],[DateTime]) values('{name}', '{email}','{pwd}', '{cont}', '{role}', {empId}, '{Otp}','{refranceId}', '{ DateTime.Now.ToString("dd:MM:YYYY_HH:mm")}'); 
                             Insert into LoginTokenRec (EmpId) values ('{empId}')";
                             var result2 = await _conn.ExecuteAsync(query2);
                             
@@ -306,7 +305,7 @@ namespace SQCScanner.Controllers
                         {
                             isEmt = false;
                         }
-
+                        var currentDateTime =  DateTime.Now.ToString("dd:MM:YYYY_HH:mm");
                         var query = $@"select MAX(EmpId) from empModels";
                         var result = _conn.ExecuteScalarAsync<int?>(query);
                         var empId = result.Result == null ? 1001 : result.Result + 1;
@@ -316,13 +315,14 @@ namespace SQCScanner.Controllers
                         {
                             EmpId = empId.ToString(),
                             EmpName = name,
-                            EmpEmail =email,
+                            EmpEmail = email,
                             password = "STPI",
                             contact = cont,
                             role = "admin",
                             IsLoggedIn = false,
                             UserOtp = SixOTP,
-                            RefranceId = RefranceId
+                            RefranceId = RefranceId,
+                            DateTime = DateTime.Now.ToString("dd:MM:yyyy_HH:mm")
                         };
                         var data = _DbContext.empModels.Add(emailRec);
                         await _DbContext.SaveChangesAsync();
@@ -476,7 +476,15 @@ namespace SQCScanner.Controllers
         {
             dynamic res;
             try {
-                    var empList = _DbContext.empModels.AsQueryable();
+                var empList = _DbContext.empModels.AsQueryable();
+                if (model.referenceId == "")
+                {
+                    // return all records
+                    empList = _DbContext.empModels.AsQueryable();
+                }
+                else
+                {
+                    empList = _DbContext.empModels.AsQueryable().Where(reff=>reff.RefranceId==model.referenceId);
                     if (!string.IsNullOrWhiteSpace(model.role))
                     {
                         empList = empList.Where(rol => rol.role == model.role);
@@ -485,15 +493,16 @@ namespace SQCScanner.Controllers
                     {
                         empList = empList.Where(x => x.EmpEmail.Contains(model.search) || x.EmpName.Contains(model.search));
                     }
-                    if(!string.IsNullOrWhiteSpace(model.isLogg))
+                    if (!string.IsNullOrWhiteSpace(model.isLogg))
                     {
                         bool isLoggedIn = bool.Parse(model.isLogg);
                         empList = empList.Where(x => x.IsLoggedIn == isLoggedIn);
                     }
-                    var records = empList.OrderBy(x=>x.Id).Skip((model.PageNumber-1)*model.range).Take(model.range).ToList();
-                    Console.WriteLine(records.Count);
+                }
+
+                var records = empList.OrderBy(x => x.Id).Skip((model.PageNumber - 1) * model.range).Take(model.range).ToList();
                     
-                    var empListCount = _DbContext.empModels.Count();
+                var empListCount = _DbContext.empModels.Count();
                 if (!empList.Any())
                 {
                     res = new
@@ -531,6 +540,7 @@ namespace SQCScanner.Controllers
             public string isLogg { get; set; }
             public string role { get; set; }
             public string search { get; set; }
+            public string referenceId { get; set; }
         }
 
         // Delete API  -- All Record

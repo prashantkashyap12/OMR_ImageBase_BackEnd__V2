@@ -25,5 +25,7 @@ namespace SQCScanner.Modal
         public string zip { get; set; } = string.Empty;
         public string contory { get; set; } = string.Empty;
         public string profileName { get; set; } = string.Empty;
+        public string DateTime { get; set; } = string.Empty;
+
     }
 }

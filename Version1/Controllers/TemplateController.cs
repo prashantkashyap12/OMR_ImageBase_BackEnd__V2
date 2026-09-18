@@ -138,7 +138,7 @@ namespace SQCScanner.Controllers
                                 _logger.LogInformation("Image saved successfully at {Path}", filePath);
 
                                 DateTime date = DateTime.Now;
-                                string fileNameMix = $"{TempName}##{empId}";
+                                string fileNameMix = $"{TempName}";
 
                                 var resp = _dbContext.Add(new ImgTemp
                                 {
@@ -626,47 +626,6 @@ namespace SQCScanner.Controllers
             return Ok(res);
         }
 
-        //[HttpPost]
-        //[Route("GetTest")]
-        //public async Task<IActionResult> GetTest([FromBody] ListCount model)
-        //{
-        //    dynamic res;
-        //    try
-        //    {
-        //        var tests = new List<TestCreate>();
-
-        //        using (var _conn = new SqlConnection(_connectionString))
-        //        {
-        //            _conn.Open();
-        //            string query = $"SELECT * FROM TestCases ";
-        //            var data = await _conn.QueryAsync<TestCreate>(query);
-        //            var totalcout = data.Count();
-        //            if (!string.IsNullOrEmpty(model.search))
-        //            {
-        //                data = data.Where(x => x.TestId.Contains(model.search) || x.testName.Contains(model.search));
-        //                Console.WriteLine(data);
-        //            }
-        //            else
-        //            {
-        //                data = data.OrderBy(x => x.Sr).Skip((model.page - 1) * model.range).Take(int.Parse(model.range.ToString()));
-        //            }
-        //            res = new { state = true, message = "Data List", Record = data, count = totalcout };
-        //            _conn.Close();
-        //        }
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        res = new { state = false, Message = ex.Message };
-        //    }
-        //    return Ok(res);
-        //}
-        //public class ListCount
-        //{
-        //    public int page { get; set; }
-        //    public int range { get; set; }
-        //    public string search { get; set; }
-        //}
-
 
         [HttpPost]
         [Route("GetTest")]
@@ -1141,9 +1100,9 @@ namespace SQCScanner.Controllers
                 // 2. Validate strict archive format (.zip or .rar ONLY)
                 // ---------------------------------------------
                 var allowedArchiveExtensions = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
-        {
-            ".zip", ".rar"
-        };
+                {
+                    ".zip", ".rar"
+                };
 
                 foreach (var file in files)
                 {
@@ -1214,11 +1173,11 @@ namespace SQCScanner.Controllers
                 // ---------------------------------------------
                 // 6. Extraction Logic
                 // ---------------------------------------------
-                int extractedImagesCount = 0;
+                int extractedImagesCount = 1;
                 var allowedImageExtensions = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
-        {
-            ".jpg", ".jpeg", ".png", ".bmp", ".tif", ".tiff"
-        };
+                {
+                    ".jpg", ".jpeg", ".png", ".bmp", ".tif", ".tiff"
+                };
 
                 bool isFirstArchiveProcess = true;
 
@@ -1242,9 +1201,7 @@ namespace SQCScanner.Controllers
 
                                 string originalFileName = Path.GetFileName(entry.Key);
                                 string extension = Path.GetExtension(originalFileName);
-                                var dataTo = archive.Entries.Count();
-                                Console.WriteLine(dataTo);
-
+                                var dataTo = archive.Entries.Count()-1;
                                 if (allowedImageExtensions.Contains(extension))
                                 {
                                     string newFileName = $"OMRIOS_{Guid.NewGuid():N}{extension}";
@@ -1256,14 +1213,14 @@ namespace SQCScanner.Controllers
                                         await entryStream.CopyToAsync(targetStream);
                                     }
 
-                                    extractedImagesCount++;
                                     var progressNotification = new
                                     {
                                         type = $"{newFileName} Image extracted successfully",
                                         path = filePath,
                                         uploadedCount = extractedImagesCount,
-                                        Total = extractedImagesCount == 1 ? dataTo.ToString() : ""
+                                        Total = dataTo.ToString()
                                     };
+                                    extractedImagesCount++;
                                    
                                     await _webSocketHandler.UserMessageAsync(empId, JsonSerializer.Serialize(progressNotification));
 
@@ -1306,7 +1263,7 @@ namespace SQCScanner.Controllers
                 {
                     success = true,
                     message = "Archive file(s) processed and images extracted successfully.",
-                    extractedImagesCount = extractedImagesCount,
+                    extractedImagesCount = extractedImagesCount-1,
                     totalArchiveFiles = files.Count
                 });
             }
