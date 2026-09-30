@@ -723,81 +723,6 @@ namespace SQCScanner.Controllers
             }
         }
 
-        // Update Profile
-        //[HttpPost]
-        //[Route("updateProfiles")]
-        //public async Task<IActionResult> updateProfiles(updateProfile model)
-        //{
-        //    dynamic res;
-
-        //    try
-        //    {
-        //        using (var _conn = new SqlConnection(_connectionString))
-        //        {
-        //            _conn.Open();
-        //            _logger.LogTrace("Method Started");
-        //            var handler = new JwtSecurityTokenHandler();
-        //            var expiredToken = Request.Headers["Authorization"].FirstOrDefault()?.Replace("Bearer ", "").Trim();
-        //            if (string.IsNullOrWhiteSpace(expiredToken))
-        //            {
-        //                return Unauthorized(new { message = "No token provided" });
-        //            }
-        //            var jwtToken1 = handler.ReadJwtToken(expiredToken);
-        //            var empId = jwtToken1.Claims.FirstOrDefault(c => c.Type == "nameid")?.Value;
-        //            var resp = _conn.QueryFirstOrDefault($"select * from empModels where EmpId = {empId}");
-        //            var already = _DbContext.empModels.FirstOrDefault(a => a.EmpId == empId);
-        //            string[] data = new string[10];
-        //            if (resp == null)
-        //            {
-        //                res = new
-        //                {
-        //                    status = true,
-        //                    message = "User Not Found"
-        //                };
-        //            }
-        //            else
-        //            {
-        //                var dataData = await _imgSave.userprofile(empId, model.Updateimage);
-        //                Console.WriteLine(already);
-        //                data[0] = model.firstName ?? already.EmpName;
-        //                data[1] = model.lastName ?? already.EmpLastName;
-        //                data[2] = model.contact ?? already.contact;
-        //                data[3] = "";
-        //                data[4] = model.DOB ?? already.DateOfBirth;
-        //                data[5] = model.gender ?? already.gender;
-        //                data[6] = model.address ?? already.address;
-        //                data[7] = model.city ?? already.city;
-        //                data[8] = model.state ?? already.state;
-        //                data[9] = model.pin ?? already.zip;
-        //                data[10] = model.country ?? already.contory;
-
-
-        //                Console.WriteLine(data);
-
-        //                string name = $"{model.firstName} {model.lastName}";
-        //                Console.WriteLine(dataData);
-        //                var sql = @$"UPDATE empModels SET EmpName = '{data[0]} {data[1]}', contact = '{data[2]}', profileName = '{data[3]}', DateOfBirth = '{data[4]}', gender = '{data[5]}', address = '{data[6]}', city = '{data[7]}', state = '{data[8]}', zip = '{data[9]}', contory = '{data[10]}' WHERE EmpId = '{empId}'";
-        //                var RespData = _conn.Execute(sql);
-        //                res = new
-        //                {
-        //                    status = true,
-        //                    message = "User update"
-        //                };
-        //            }
-        //            _conn.Close();
-        //        }
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        res = new
-        //        {
-        //            status = false,
-        //            message = ex.Message
-        //        };
-
-        //    }
-        //    return Ok(res);
-        //}
 
         [HttpPost]
         [Route("updateProfiles")]
@@ -866,18 +791,6 @@ namespace SQCScanner.Controllers
                 var state = string.IsNullOrWhiteSpace(model.state) ? (model.state == null ? "" : "") : model.state;
                 var pin = string.IsNullOrWhiteSpace(model.pin) ? (model.pin == null ? "" : "") : model.pin;
                 var country = string.IsNullOrWhiteSpace(model.country) ? (model.country == null ? "" : "") : model.country;
-
-
-
-                //var lastName = model.lastName ?? already.EmpLastName;
-                //var contact = model.contact ?? already.contact;
-                //var dob = model.DOB ?? already.DateOfBirth;
-                //var gender = model.gender ?? already.gender;
-                //var address = model.address ?? already.address;
-                //var city = model.city ?? already.city;
-                //var state = model.state ?? already.state;
-                //var pin = model.pin ?? already.zip;
-                //var country = model.country ?? already.contory;
 
                 var sql = @"UPDATE empModels
                 SET

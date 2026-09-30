@@ -102,6 +102,7 @@ namespace Version1.Controllers
                 var imageFiles = Directory.GetFiles(folderPath, "*.*").Where(f => f.EndsWith(".jpg") || f.EndsWith(".png") || f.EndsWith(".jpeg") || f.EndsWith(".tif")).ToList();
                 var Targetjson = string.Empty;
                 var ReturnDetails = _dbContext.ImgTemplate.FirstOrDefault(x => x.Id == idTemp);
+                Console.WriteLine(ReturnDetails);
                 string imageUrl = ReturnDetails.imgPath;
                 string templateName = ReturnDetails.FileName;
                 imageUrl = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", imageUrl);
@@ -145,7 +146,7 @@ namespace Version1.Controllers
                                 {
                                     if (crttb == 1)
                                     {
-                                        var tableCrt = await _recordTable.TableCreation(res, idTemp);
+                                        var tableCrt = await _recordTable.TableCreation(res, idTemp, folderPAth, userId, idTemp);
                                     }
                                     crttb++;
                                 }

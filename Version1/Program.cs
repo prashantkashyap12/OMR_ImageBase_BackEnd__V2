@@ -81,7 +81,7 @@ Syncfusion.Licensing.SyncfusionLicenseProvider.RegisterLicense("Ngo9BigBOggjHTQx
 var app = builder.Build();
 
 // Http Routing Redirection
-app.UseHttpsRedirection();
+//app.UseHttpsRedirection();
 
 // Cross sharing - not specifically
 app.UseCors("AllowAnyOrigin");

@@ -4,6 +4,7 @@ using System.Security.Claims;
 using System.Security.Cryptography;
 using Dapper;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Cors;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
@@ -21,6 +22,7 @@ using static OpenCvSharp.Stitcher;
 namespace SQCScanner.Controllers
 {
     [Route("api/auth/qr")]
+    [EnableCors("AllowAnyOrigin")]
     [ApiController]
     public class LoginController : ControllerBase
     {

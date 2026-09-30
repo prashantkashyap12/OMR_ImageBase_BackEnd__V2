@@ -581,12 +581,12 @@ namespace SQCScanner.Controllers
                 {
                     await _conn.OpenAsync();
                      var querryA = $"SELECT * FROM TestCases WHERE TestName = '{model.testName}' AND EmpId = '{Empid}'";
-                    var isExist = _conn.QueryFirstOrDefault<TestCreate>(querryA);
-                        var firstValue = isExist?.TestId.Split('/')[0];
-
+                     var isExist = _conn.QueryFirstOrDefault<TestCreate>(querryA);
+                     var firstValue = isExist?.TestId.Split('/')[0];
+                     
                     if(isExist == null)
                     {
-                        var querry = $"insert into TestCases (TemplateId, TestName, TestId, Notes, status, EmpId) values ('{model.TemplateId}', '{model.testName}', '{model.TestId}', '{model.notes}', '{model.status}', '{Empid}')";
+                        var querry = $"insert into TestCases (TemplateId, TestName, TestId, Notes, status, EmpId, TotalImages) values ('{model.TemplateId}', '{model.testName}', '{model.TestId}', '{model.notes}', 'N', '{Empid}', '')";
                         _conn.ExecuteAsync(querry);
                         if (!Directory.Exists(directoryPath))
                         {
@@ -606,7 +606,97 @@ namespace SQCScanner.Controllers
                         }
                         else
                         {
-                            var querry = $"insert into TestCases (TemplateId, TestName, TestId, Notes, status) values ('{model.TemplateId}', '{model.testName}', '{model.TestId}', '{model.notes}', '{model.status}')";
+                            var querry = $"insert into TestCases (TemplateId, TestName, TestId, Notes, status, TotalImages) values ('{model.TemplateId}', '{model.testName}', '{model.TestId}', '{model.notes}', 'N', '')";
+                            _conn.ExecuteAsync(querry);
+                            if (!Directory.Exists(directoryPath))
+                            {
+                                Directory.CreateDirectory(directoryPath);
+                            }
+                            await _conn.CloseAsync();
+                            res = new { state = true, message = "Test created successfully" };
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                res = new { state = false, message = ex.Message };
+            }
+
+            return Ok(res);
+        }
+
+        // Test Management -- Store procedure //
+        [HttpPost]
+        [Route("CreateTestMob")]
+        public async Task<IActionResult> CreateTestMob([FromBody] TestCreate model)
+        {
+            dynamic res;
+            try
+            {
+                var getToken = Request.Headers["Authorization"].FirstOrDefault()?.Replace("Bearer ", "").Trim();
+                if (string.IsNullOrWhiteSpace(getToken))
+                {
+                    return Unauthorized(new { message = "No token provided" });
+                }
+                var handler = new JwtSecurityTokenHandler();
+                var TokenDecription = handler.ReadJwtToken(getToken);
+                var Empid = TokenDecription.Claims.FirstOrDefault(c => c.Type == "nameid")?.Value;
+                var directoryPath = Path.Combine(_root, Empid, model.testName);
+
+                string testId = string.Empty;
+                DateTime now = DateTime.Now;
+                string formattedDate = now.ToString("ddMM");
+                string formattedTime = now.ToString("HHmmssfff");
+                string safeUserId = string.IsNullOrEmpty(Empid) ? "USER" : Empid;
+                testId = $"{safeUserId}/{formattedDate}{formattedTime}";
+                Console.WriteLine(testId);
+
+                if (!string.IsNullOrWhiteSpace(model.TemplateId))
+                {
+                    int tempId = Convert.ToInt32(model.TemplateId);
+                    var data = _dbContext.ImgTemplate.FirstOrDefault(x => x.Id == tempId);
+                    Console.WriteLine();
+                    if (!string.IsNullOrEmpty(data.JsonPath) == null && data.JsonPath == "")
+                    {
+                        BadRequest("Template not Found");
+                    }
+                }
+
+               
+
+
+                using (var _conn = new SqlConnection(_connectionString))
+                {
+                    await _conn.OpenAsync();
+                    var querryA = $"SELECT * FROM TestCases WHERE TestName = '{model.testName}' AND EmpId = '{Empid}'";
+                    var isExist = _conn.QueryFirstOrDefault<TestCreate>(querryA);
+                    var firstValue = isExist?.TestId.Split('/')[0];
+
+                    if (isExist == null)
+                    {
+                        var querry = $"insert into TestCases (TemplateId, TestName, TestId, Notes, status, EmpId, TotalImages) values ('{model.TemplateId}', '{model.testName}', '{testId}', '{model.notes}', 'N', '{Empid}','')";
+                        _conn.ExecuteAsync(querry);
+                        if (!Directory.Exists(directoryPath))
+                        {
+                            Directory.CreateDirectory(directoryPath);
+                        }
+                        await _conn.CloseAsync();
+                        res = new { state = true, message = "Test created successfully" };
+                    }
+                    else
+                    {
+                        if (firstValue == Empid)
+                        {
+                            return Conflict(new
+                            {
+                                state = false,
+                                message = "Test name already exist, please change Test Name"
+                            });
+                        }
+                        else
+                        {
+                            var querry = $"insert into TestCases (TemplateId, TestName, TestId, Notes, status, TotalImages) values ('{model.TemplateId}', '{model.testName}', '{testId}', '{model.notes}', 'N', '')";
                             _conn.ExecuteAsync(querry);
                             if (!Directory.Exists(directoryPath))
                             {
@@ -692,6 +782,74 @@ namespace SQCScanner.Controllers
             public string search { get; set; }
         }
 
+        [HttpPost]
+        [Route("GetTestEmp")]
+        public async Task<IActionResult> GetTestEmp([FromBody] ListCount model)
+        {
+            dynamic res;
+
+            try
+            {
+                var getToken = Request.Headers["Authorization"].FirstOrDefault()?.Replace("Bearer ", "").Trim();
+                if (string.IsNullOrWhiteSpace(getToken))
+                {
+                    return Unauthorized(new { message = "No token provided" });
+                }
+                var handler = new JwtSecurityTokenHandler();
+                var TokenDecription = handler.ReadJwtToken(getToken);
+                var Empid = TokenDecription.Claims.FirstOrDefault(c => c.Type == "nameid")?.Value;
+
+
+                using (var _conn = new SqlConnection(_connectionString))
+                {
+                    _conn.Open();
+
+                    string query = $"SELECT * FROM TestCases where EmpId={Empid}";
+
+                    var data = await _conn.QueryAsync<TestCreate>(query);
+
+                    var totalcount = data.Count();
+
+                    if (!string.IsNullOrEmpty(model.search))
+                    {
+                        string search = model.search.ToLower();
+
+                        data = data.Where(x =>
+                            (!string.IsNullOrEmpty(x.TestId) && x.TestId.ToLower().Contains(search)) ||
+                            (!string.IsNullOrEmpty(x.testName) && x.testName.ToLower().Contains(search))
+                        );
+                    }
+                    else
+                    {
+                        data = data
+                            .OrderBy(x => x.Sr)
+                            .Skip((model.page - 1) * model.range)
+                            .Take(model.range);
+                    }
+
+                    res = new
+                    {
+                        state = true,
+                        message = "Data List",
+                        Record = data,
+                        count = totalcount
+                    };
+
+                    _conn.Close();
+                }
+            }
+            catch (Exception ex)
+            {
+                res = new
+                {
+                    state = false,
+                    Message = ex.Message
+                };
+            }
+
+            return Ok(res);
+        }
+
 
         [HttpDelete]
         [Route("DeleteTest")]
@@ -725,6 +883,20 @@ namespace SQCScanner.Controllers
                     var directoryPath = "";
                     if (dataTest != null)
                     {
+                        //string crpo = ;
+
+                        //string sharefolder = Path.Combine(Directory.GetCurrentDirectory(), "wFileManager/" + dataTest.TestId.Split('/')[0] + "/"+dataTest.testName);
+                        //Console.WriteLine(sharefolder);
+                        //if (Directory.Exists(sharefolder))
+                        //{
+                        //    Directory.Delete(sharefolder, true);
+                        //}
+
+                        //1. Detele Test Records (Done)
+                        //2. Delete Directory where upload images
+                        //3. Delete DB Table form DB
+
+
                         var data = await _conn.ExecuteAsync($"delete TestCases where TestId = '{testId}'");
                         directoryPath = Path.Combine(_root, Empid, dataTest.testName);
                         if (Directory.Exists(directoryPath))
@@ -791,286 +963,290 @@ namespace SQCScanner.Controllers
             public string? TestId { get; set; }
             public string? notes { get; set; }
             public string? status { get; set; }
+            public string? EmpId { get; set; }
+            public dynamic? TotalImages { get; set; }
         }
 
         // Image upload Realtime api.
-        //[HttpPost("upload")]
-        //public async Task<IActionResult> UploadImage(List<IFormFile> files, string TestName)
-        //{
-        //    if (files == null || files.Count == 0)
-        //        return BadRequest("Image is required.");
+        [HttpPost("uploadImage")]
+        public async Task<IActionResult> UploadImage(List<IFormFile> files, string TestName)
+        {
+            if (files == null || files.Count == 0)
+                return BadRequest("Image is required.");
 
-        //    string directoryPath = "";
-        //    var getToken = Request.Headers["Authorization"].FirstOrDefault()?.Replace("Bearer ", "").Trim();
-        //    var handler = new JwtSecurityTokenHandler();
-        //    var TokenDecription = handler.ReadJwtToken(getToken);
-        //    var Empid = TokenDecription.Claims.FirstOrDefault(c => c.Type == "nameid")?.Value;
-        //    Console.WriteLine(Empid);
-        //    using(var _conn = new SqlConnection(_connectionString))
-        //    {
-        //        var dataTest = _conn.QueryFirstOrDefault<TestCreate>($"select * from TestCases where TestName = '{TestName}'");
-        //        directoryPath = Path.Combine(_root, Empid, dataTest.testName);
-        //    }
+            string directoryPath = "";
+            var getToken = Request.Headers["Authorization"].FirstOrDefault()?.Replace("Bearer ", "").Trim();
+            var handler = new JwtSecurityTokenHandler();
+            var TokenDecription = handler.ReadJwtToken(getToken);
+            var Empid = TokenDecription.Claims.FirstOrDefault(c => c.Type == "nameid")?.Value;
+            Console.WriteLine(Empid);
+            using (var _conn = new SqlConnection(_connectionString))
+            {
+                var dataTest = _conn.QueryFirstOrDefault<TestCreate>($"select * from TestCases where TestName = '{TestName}'");
+                directoryPath = Path.Combine(_root, Empid, dataTest.testName);
+            }
 
-        //    if (!Directory.Exists(directoryPath))
-        //    {
-        //        Directory.CreateDirectory(directoryPath);
-        //    }
+            if (!Directory.Exists(directoryPath))
+            {
+                Directory.CreateDirectory(directoryPath);
+            }
 
-        //    //var uploadedFiles = new List<object>();
-        //    int uploadedCount = 0;
-        //    foreach (var file in files)
-        //    {
-        //        if (file == null || file.Length == 0)
-        //            continue;
+            //var uploadedFiles = new List<object>();
+            int uploadedCount = 0;
+            foreach (var file in files)
+            {
+                if (file == null || file.Length == 0)
+                    continue;
 
-        //        string fileName = $"OMRIOS_{file.FileName}";
+                string fileName = $"OMRIOS_{file.FileName}";
 
-        //        string filePath = Path.Combine(directoryPath, fileName);
-        //        using (var stream = new FileStream(filePath, FileMode.Create))
-        //        {
-        //            await file.CopyToAsync(stream);
-        //            uploadedCount++;
-        //        }
-        //        var uploadedFiles = new
-        //        {
-        //            type = $"{fileName} Image file uploaded successfully",
-        //            path = filePath,
-        //            uploadedCount = uploadedCount,
-        //            totalFiles = files.Count
-        //        };
-        //        string json = JsonSerializer.Serialize(uploadedFiles);
-        //        await _webSocketHandler.UserMessageAsync(Empid, json);
-        //    }
-        //    await _webSocketHandler.UserMessageAsync(Empid, "");
-        //    return Ok(new
-        //    {
-        //        success = true,
-        //        message = "Image uploaded successfully",
-        //    });
-        //}
+                string filePath = Path.Combine(directoryPath, fileName);
+                using (var stream = new FileStream(filePath, FileMode.Create))
+                {
+                    await file.CopyToAsync(stream);
+                    uploadedCount++;
+                }
+                var uploadedFiles = new
+                {
+                    type = $"{fileName} Image file uploaded successfully",
+                    path = filePath,
+                    uploadedCount = uploadedCount,
+                    totalFiles = files.Count
+                };
+                string json = JsonSerializer.Serialize(uploadedFiles);
+                await _webSocketHandler.UserMessageAsync(Empid, json);
+            }
+            await _webSocketHandler.UserMessageAsync(Empid, "");
+            return Ok(new
+            {
+                success = true,
+                message = "Image uploaded successfully",
+            });
+        }
 
-        //[RequestSizeLimit(2_000_000_000)]
-        //[RequestFormLimits(MultipartBodyLengthLimit = 2_000_000_000)]
-        //[HttpPost("upload")]
-        //public async Task<IActionResult> UploadImage(List<IFormFile> files, string TestName)
-        //{  
-        //    try
-        //    {
-        //        // ---------------------------------------------
-        //        // 1. Validate files
-        //        // ---------------------------------------------
-        //        if (files == null || files.Count == 0)
-        //        {
-        //            return BadRequest(new
-        //            {
-        //                success = false,
-        //                message = "Image is required."
-        //            });
-        //        }
+        [RequestSizeLimit(2_000_000_000)]
+        [RequestFormLimits(MultipartBodyLengthLimit = 2_000_000_000)]
+        [HttpPost("UploadImageMob")]
+        public async Task<IActionResult> UploadImageMob(List<IFormFile> files, string TestName)
+        {
+            try
+            {
+                // ---------------------------------------------
+                // 1. Validate files
+                // ---------------------------------------------
+                if (files == null || files.Count == 0)
+                {
+                    return BadRequest(new
+                    {
+                        success = false,
+                        message = "Image is required."
+                    });
+                }
 
-        //        if (string.IsNullOrWhiteSpace(TestName))
-        //        {
-        //            return BadRequest(new
-        //            {
-        //                success = false,
-        //                message = "TestName is required."
-        //            });
-        //        }
+                if (string.IsNullOrWhiteSpace(TestName))
+                {
+                    return BadRequest(new
+                    {
+                        success = false,
+                        message = "TestName is required."
+                    });
+                }
 
-        //        // ---------------------------------------------
-        //        // 2. Get Employee ID from JWT
-        //        // ---------------------------------------------
-        //        var token = Request.Headers["Authorization"]
-        //            .FirstOrDefault()?
-        //            .Replace("Bearer ", "")
-        //            .Trim();
+                // ---------------------------------------------
+                // 2. Get Employee ID from JWT
+                // ---------------------------------------------
+                var token = Request.Headers["Authorization"]
+                    .FirstOrDefault()?
+                    .Replace("Bearer ", "")
+                    .Trim();
 
-        //        if (string.IsNullOrWhiteSpace(token))
-        //        {
-        //            return Unauthorized(new
-        //            {
-        //                success = false,
-        //                message = "Authorization token is missing."
-        //            });
-        //        }
+                if (string.IsNullOrWhiteSpace(token))
+                {
+                    return Unauthorized(new
+                    {
+                        success = false,
+                        message = "Authorization token is missing."
+                    });
+                }
 
-        //        var handler = new JwtSecurityTokenHandler();
-        //        var tokenDescription = handler.ReadJwtToken(token);
+                var handler = new JwtSecurityTokenHandler();
+                var tokenDescription = handler.ReadJwtToken(token);
 
-        //        var empId = tokenDescription.Claims
-        //            .FirstOrDefault(c => c.Type == "nameid")
-        //            ?.Value;
+                var empId = tokenDescription.Claims
+                    .FirstOrDefault(c => c.Type == "nameid")
+                    ?.Value;
 
-        //        if (string.IsNullOrWhiteSpace(empId))
-        //        {
-        //            return Unauthorized(new
-        //            {
-        //                success = false,
-        //                message = "Employee ID not found in token."
-        //            });
-        //        }
+                if (string.IsNullOrWhiteSpace(empId))
+                {
+                    return Unauthorized(new
+                    {
+                        success = false,
+                        message = "Employee ID not found in token."
+                    });
+                }
 
-        //        // ---------------------------------------------
-        //        // 3. Get Test from DB
-        //        // ---------------------------------------------
-        //        TestCreate? dataTest;
+                // ---------------------------------------------
+                // 3. Get Test from DB
+                // ---------------------------------------------
+                TestCreate? dataTest;
 
-        //        using (var conn = new SqlConnection(_connectionString))
-        //        {
-        //            conn.Open();
-        //            dataTest = conn.QueryFirstOrDefault<TestCreate>(@"SELECT * FROM TestCases WHERE TestName = @TestName", new { TestName });
-        //            conn.Close();
-        //        }
+                using (var conn = new SqlConnection(_connectionString))
+                {
+                    conn.Open();
+                    dataTest = conn.QueryFirstOrDefault<TestCreate>(@"SELECT * FROM TestCases WHERE TestName = @TestName", new { TestName });
+                    conn.Close();
+                }
 
-        //        if (dataTest == null){
-        //            return NotFound(new
-        //            {
-        //                success = false,
-        //                message = $"Test '{TestName}' not found."
-        //            });
-        //        }
+                if (dataTest == null)
+                {
+                    return NotFound(new
+                    {
+                        success = false,
+                        message = $"Test '{TestName}' not found."
+                    });
+                }
 
-        //        // ---------------------------------------------
-        //        // 4. Build directory
-        //        // ---------------------------------------------
-        //        string directoryPath = Path.Combine(_root, empId, dataTest.testName);
+                // ---------------------------------------------
+                // 4. Build directory
+                // ---------------------------------------------
+                string directoryPath = Path.Combine(_root, empId, dataTest.testName);
 
-        //        // IMPORTANT:
-        //        Directory.CreateDirectory(directoryPath);
+                // IMPORTANT:
+                Directory.CreateDirectory(directoryPath);
 
-        //        // ---------------------------------------------
-        //        // 5. Upload files
-        //        // ---------------------------------------------
-        //        int uploadedCount = 0;
+                // ---------------------------------------------
+                // 5. Upload files
+                // ---------------------------------------------
+                int uploadedCount = 0;
 
-        //        const long maxImageSize = 2L * 1024 * 1024 * 1024; // 20 GB
+                const long maxImageSize = 2L * 1024 * 1024 * 1024; // 20 GB
 
-        //        var allowedExtensions = new HashSet<string>(StringComparer.OrdinalIgnoreCase){ ".jpg", ".jpeg", ".png", ".bmp", ".tif", ".tiff" };
-        //        var run = 0;
+                var allowedExtensions = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { ".jpg", ".jpeg", ".png", ".bmp", ".tif", ".tiff" };
+                var run = 0;
 
-        //        foreach (var file in files)
-        //        {
-        //            if (file == null || file.Length == 0)
-        //                continue;
+                foreach (var file in files)
+                {
+                    if (file == null || file.Length == 0)
+                        continue;
 
-        //            // 20 MB per image
-        //            if (file.Length > maxImageSize)
-        //            {
-        //                return BadRequest(new
-        //                {
-        //                    success = false,
-        //                    message = $"File '{file.FileName}' exceeds the maximum allowed size of 20 MB."
-        //                });
-        //            }
-
-
-        //            // NEVER directly trust file.FileName
-        //            string originalFileName = Path.GetFileName(file.FileName);
-
-        //            // Get extension
-        //            string extension = Path.GetExtension(originalFileName);
-
-        //            // Extenstion not matched
-        //            if (!allowedExtensions.Contains(extension))
-        //            {
-        //                return BadRequest(new
-        //                {
-        //                    success = false,
-        //                    message = $"File '{originalFileName}' is not a supported image format."
-        //                });
-        //            }
+                    // 20 MB per image
+                    if (file.Length > maxImageSize)
+                    {
+                        return BadRequest(new
+                        {
+                            success = false,
+                            message = $"File '{file.FileName}' exceeds the maximum allowed size of 20 MB."
+                        });
+                    }
 
 
-        //            // Generate a SHORT safe filename
-        //            string fileName =
-        //                $"OMRIOS_{Guid.NewGuid():N}{extension}";
+                    // NEVER directly trust file.FileName
+                    string originalFileName = Path.GetFileName(file.FileName);
 
-        //            string filePath = Path.Combine(
-        //                directoryPath,
-        //                fileName
-        //            );
+                    // Get extension
+                    string extension = Path.GetExtension(originalFileName);
 
-        //            Console.WriteLine($"Original File : {originalFileName}");
-        //            Console.WriteLine($"Saving File   : {fileName}");
-        //            Console.WriteLine($"Full Path     : {filePath}");
-
-        //            // -----------------------------------------
-        //            // 6. Save file
-        //            // -----------------------------------------
-        //            await using (var stream = new FileStream(
-        //                filePath,
-        //                FileMode.CreateNew,
-        //                FileAccess.Write,
-        //                FileShare.None,
-        //                81920,
-        //                useAsync: true))
-        //            {
-        //                await file.CopyToAsync(stream);
-        //            }
-
-        //            uploadedCount++;
-
-        //            // -----------------------------------------
-        //            // 7. WebSocket notification
-        //            // -----------------------------------------
-        //            var uploadedFile = new
-        //            {
-        //                type = $"{fileName} Image file uploaded successfully",
-        //                path = filePath,
-        //                uploadedCount = uploadedCount,
-        //                totalFiles = files.Count
-        //            };
-
-        //            string json = JsonSerializer.Serialize(uploadedFile);
-
-        //             _webSocketHandler.UserMessageAsync(
-        //                empId,
-        //                json
-        //            );
-        //            run++;
-        //            if (run == 1)
-        //            {
-        //                using (var conn = new SqlConnection(_connectionString))
-        //                {
-        //                    conn.Open();
-        //                    var qry = "UPDATE TestCases SET status = @Status WHERE TestName = @TestName";
-        //                    conn.Execute(qry, new
-        //                    {
-        //                        Status = "Y",
-        //                        TestName = TestName
-        //                    });
-        //                    conn.Close();
-        //                }
-        //            }
-        //        }
-
-        //        // Finish WebSocket progress
-        //         _webSocketHandler.UserMessageAsync(
-        //            empId,
-        //            ""
-        //        );
+                    // Extenstion not matched
+                    if (!allowedExtensions.Contains(extension))
+                    {
+                        return BadRequest(new
+                        {
+                            success = false,
+                            message = $"File '{originalFileName}' is not a supported image format."
+                        });
+                    }
 
 
+                    // Generate a SHORT safe filename
+                    string fileName =
+                        $"OMRIOS_{Guid.NewGuid():N}{extension}";
 
-        //        return Ok(new
-        //        {
-        //            success = true,
-        //            message = "Image uploaded successfully.",
-        //            uploadedCount = uploadedCount,
-        //            totalFiles = files.Count
-        //        });
-        //    }
-        //    catch (Exception ex){
-        //        Console.WriteLine(ex);
-        //        return StatusCode(500, new
-        //        {
-        //            success = false,
-        //            message = "Image upload failed.",
-        //            error = ex.Message
-        //        });
-        //    }
-        //}
+                    string filePath = Path.Combine(
+                        directoryPath,
+                        fileName
+                    );
+
+                    Console.WriteLine($"Original File : {originalFileName}");
+                    Console.WriteLine($"Saving File   : {fileName}");
+                    Console.WriteLine($"Full Path     : {filePath}");
+
+                    // -----------------------------------------
+                    // 6. Save file
+                    // -----------------------------------------
+                    await using (var stream = new FileStream(
+                        filePath,
+                        FileMode.CreateNew,
+                        FileAccess.Write,
+                        FileShare.None,
+                        81920,
+                        useAsync: true))
+                    {
+                        await file.CopyToAsync(stream);
+                    }
+
+                    uploadedCount++;
+
+                    // -----------------------------------------
+                    // 7. WebSocket notification
+                    // -----------------------------------------
+                    var uploadedFile = new
+                    {
+                        type = $"{fileName} Image file uploaded successfully",
+                        path = filePath,
+                        uploadedCount = uploadedCount,
+                        totalFiles = files.Count
+                    };
+
+                    string json = JsonSerializer.Serialize(uploadedFile);
+
+                    _webSocketHandler.UserMessageAsync(
+                       empId,
+                       json
+                   );
+                    run++;
+                    if (run == 1)
+                    {
+                        using (var conn = new SqlConnection(_connectionString))
+                        {
+                            conn.Open();
+                            var qry = "UPDATE TestCases SET status = @Status WHERE TestName = @TestName";
+                            conn.Execute(qry, new
+                            {
+                                Status = "Y",
+                                TestName = TestName
+                            });
+                            conn.Close();
+                        }
+                    }
+                }
+
+                // Finish WebSocket progress
+                _webSocketHandler.UserMessageAsync(
+                   empId,
+                   ""
+               );
+
+
+
+                return Ok(new
+                {
+                    success = true,
+                    message = "Image uploaded successfully.",
+                    uploadedCount = uploadedCount,
+                    totalFiles = files.Count
+                });
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex);
+                return StatusCode(500, new
+                {
+                    success = false,
+                    message = "Image upload failed.",
+                    error = ex.Message
+                });
+            }
+        }
 
         [RequestSizeLimit(3_221_225_472)]
         [RequestFormLimits(MultipartBodyLengthLimit = 3_221_225_472, ValueLengthLimit = int.MaxValue)]
@@ -1081,9 +1257,6 @@ namespace SQCScanner.Controllers
 
             try
             {
-                // ---------------------------------------------
-                // 1. Validate input files presence & TestName
-                // ---------------------------------------------
                 if (files == null || files.Count == 0)
                 {
                     _logger.LogWarning("Upload failed: No files were provided.");
@@ -1095,10 +1268,6 @@ namespace SQCScanner.Controllers
                     _logger.LogWarning("Upload failed: TestName is null or empty.");
                     return BadRequest(new { success = false, message = "TestName is required." });
                 }
-
-                // ---------------------------------------------
-                // 2. Validate strict archive format (.zip or .rar ONLY)
-                // ---------------------------------------------
                 var allowedArchiveExtensions = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
                 {
                     ".zip", ".rar"
@@ -1156,6 +1325,7 @@ namespace SQCScanner.Controllers
                         @"SELECT * FROM TestCases WHERE TestName = @TestName", new { TestName });
                     conn.Close();
                 }
+                Console.WriteLine(dataTest);
 
                 if (dataTest == null)
                 {
@@ -1180,7 +1350,7 @@ namespace SQCScanner.Controllers
                 };
 
                 bool isFirstArchiveProcess = true;
-
+                int TotalImg = 0;
                 foreach (var archiveFile in files)
                 {
                     if (archiveFile == null || archiveFile.Length == 0)
@@ -1201,7 +1371,7 @@ namespace SQCScanner.Controllers
 
                                 string originalFileName = Path.GetFileName(entry.Key);
                                 string extension = Path.GetExtension(originalFileName);
-                                var dataTo = archive.Entries.Count()-1;
+                                TotalImg = archive.Entries.Count()-1;
                                 if (allowedImageExtensions.Contains(extension))
                                 {
                                     string newFileName = $"OMRIOS_{Guid.NewGuid():N}{extension}";
@@ -1218,10 +1388,13 @@ namespace SQCScanner.Controllers
                                         type = $"{newFileName} Image extracted successfully",
                                         path = filePath,
                                         uploadedCount = extractedImagesCount,
-                                        Total = dataTo.ToString()
+                                        Total = TotalImg.ToString()
                                     };
+
+                                    //
+                                    //dataTest = dataTest + Convert.ToInt32(dataTest.TotalImages);
+
                                     extractedImagesCount++;
-                                   
                                     await _webSocketHandler.UserMessageAsync(empId, JsonSerializer.Serialize(progressNotification));
 
                                 }
@@ -1245,8 +1418,8 @@ namespace SQCScanner.Controllers
                         using (var conn = new SqlConnection(_connectionString))
                         {
                             await conn.OpenAsync();
-                            var qry = "UPDATE TestCases SET status = @Status WHERE TestName = @TestName";
-                            await conn.ExecuteAsync(qry, new { Status = "Y", TestName = TestName });
+                            var qry = "UPDATE TestCases SET status = @Status, [TotalImages]=@TotalImages WHERE TestName = @TestName";
+                            await conn.ExecuteAsync(qry, new { Status = "Y", TestName = TestName, TotalImages = TotalImg });
                             conn.Close();
                         }
                         isFirstArchiveProcess = false;
