@@ -11,63 +11,6 @@ namespace SQCScanner.Migrations
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
-           
-
-            migrationBuilder.AddColumn<string>(
-                name: "EmpLastName",
-                table: "empModels",
-                type: "nvarchar(max)",
-                nullable: false,
-                defaultValue: "");
-
-            migrationBuilder.AddColumn<string>(
-                name: "address",
-                table: "empModels",
-                type: "nvarchar(max)",
-                nullable: false,
-                defaultValue: "");
-
-            migrationBuilder.AddColumn<string>(
-                name: "city",
-                table: "empModels",
-                type: "nvarchar(max)",
-                nullable: false,
-                defaultValue: "");
-
-            migrationBuilder.AddColumn<string>(
-                name: "contory",
-                table: "empModels",
-                type: "nvarchar(max)",
-                nullable: false,
-                defaultValue: "");
-
-            migrationBuilder.AddColumn<string>(
-                name: "gender",
-                table: "empModels",
-                type: "nvarchar(max)",
-                nullable: false,
-                defaultValue: "");
-
-            migrationBuilder.AddColumn<string>(
-                name: "profileName",
-                table: "empModels",
-                type: "nvarchar(max)",
-                nullable: false,
-                defaultValue: "");
-
-            migrationBuilder.AddColumn<string>(
-                name: "state",
-                table: "empModels",
-                type: "nvarchar(max)",
-                nullable: false,
-                defaultValue: "");
-
-            migrationBuilder.AddColumn<string>(
-                name: "zip",
-                table: "empModels",
-                type: "nvarchar(max)",
-                nullable: false,
-                defaultValue: "");
 
             migrationBuilder.CreateTable(
                 name: "QrLoginSessions",
@@ -95,37 +38,6 @@ namespace SQCScanner.Migrations
             migrationBuilder.DropTable(
                 name: "QrLoginSessions");
 
-            migrationBuilder.DropColumn(
-                name: "EmpLastName",
-                table: "empModels");
-
-            migrationBuilder.DropColumn(
-                name: "address",
-                table: "empModels");
-
-            migrationBuilder.DropColumn(
-                name: "city",
-                table: "empModels");
-
-            migrationBuilder.DropColumn(
-                name: "contory",
-                table: "empModels");
-
-            migrationBuilder.DropColumn(
-                name: "gender",
-                table: "empModels");
-
-            migrationBuilder.DropColumn(
-                name: "profileName",
-                table: "empModels");
-
-            migrationBuilder.DropColumn(
-                name: "state",
-                table: "empModels");
-
-            migrationBuilder.DropColumn(
-                name: "zip",
-                table: "empModels");
 
         }
     }

@@ -23,7 +23,7 @@ builder.Host.UseSerilog();
 builder.Services.AddDbContext<ApplicationDbContext>(options => options.UseSqlServer(builder.Configuration.GetConnectionString("dbc")));
 builder.WebHost.ConfigureKestrel(options =>
 {
-    options.ListenAnyIP(7400);
+    options.ListenAnyIP(9900);
 });
 builder.Services.AddScoped<OmrProcessingService>();
 builder.Services.AddScoped<JwtAuth>();

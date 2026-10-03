@@ -92,8 +92,7 @@ namespace SQCScanner.Controllers
 
                         string fileName = Path.GetFileName(ImgTemp.FileName);
 
-                        var TempNameUnq = _dbContext.ImgTemplate
-                                                    .Select(x => x.FileName)
+                        var TempNameUnq = _dbContext.ImgTemplate.Select(x => x.FileName)
                                                     .ToList();
 
                         foreach (var tempUnq in TempNameUnq)
