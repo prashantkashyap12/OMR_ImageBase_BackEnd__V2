@@ -1109,7 +1109,7 @@ namespace SQCScanner.Controllers
                 // ---------------------------------------------
                 // 4. Build directory
                 // ---------------------------------------------
-                string directoryPath = Path.Combine(_root, empId, dataTest.testName);
+                string directoryPath = Path.Combine(_root, empId, dataTest.testName.Trim());
 
                 // IMPORTANT:
                 Directory.CreateDirectory(directoryPath);
@@ -1254,7 +1254,7 @@ namespace SQCScanner.Controllers
         public async Task<IActionResult> UploadArchiveFiles(List<IFormFile> files, string TestName)
         {
             _logger.LogInformation("UploadArchiveFiles execution started for TestName: {TestName}", TestName);
-
+            TestName = TestName.Trim();
             try
             {
                 if (files == null || files.Count == 0)
@@ -1336,7 +1336,7 @@ namespace SQCScanner.Controllers
                 // ---------------------------------------------
                 // 5. Directory Path setup
                 // ---------------------------------------------
-                string directoryPath = Path.Combine(_root, empId, dataTest.testName);
+                string directoryPath = Path.Combine(_root, empId, dataTest.testName.Trim());
                 Directory.CreateDirectory(directoryPath);
                 _logger.LogInformation("Target directory path created/verified: {DirectoryPath}", directoryPath);
 

@@ -68,8 +68,8 @@ namespace SQCScanner.Controllers
                         var isVerify = responseEntry.UserId;
                         if (isVerify == 0)
                         {
-                            var qurry = $"delete QrLoginSessions where SessionId=@session";
-                            var respose = await _conn.ExecuteAsync(qurry, new { session = sessionId });
+                            //var qurry = $"delete QrLoginSessions where SessionId=@session";
+                            //var respose = await _conn.ExecuteAsync(qurry, new { session = sessionId });
                             var querry = $"insert into QrLoginSessions (SessionId, Status, UserId, CreatedAt, ExpiresAt, Token) values (@sessionId, @status, @useId, @createdAt, @expiresAt, @token)";
                             var responce = await _conn.ExecuteAsync(querry,
                                 new
@@ -246,18 +246,20 @@ namespace SQCScanner.Controllers
 
                     if (responce == 1)
                     {
-                        // Clean old data form SQL
-                        string clean = $"delete QrLoginSessions WHERE [Status] = 'Active' AND [UserId] = '{empId}' AND [SessionId] NOT IN " +
-                             $"( SELECT TOP (3) [SessionId] FROM QrLoginSessions WHERE [CreatedAt] >= {resplist.ExpiresAt.AddMinutes(-10)} " +
-                             $"AND [Status] = 'Active' AND [UserId] = '{empId}' ORDER BY [CreatedAt] DESC, [SessionId] DESC );";
-                        Console.WriteLine(clean);
-                        var responcView = _conn.Execute(clean);
+                        string clean2 = @"
+                            DELETE FROM QrLoginSessions
+                            WHERE [Status] IN ('Pending', 'Active')
+                                AND [CreatedAt] < DATEADD(MINUTE, -2, GETDATE());
+                        ";
+
+                        var responcView = _conn.Execute(clean2);
                     }
 
                     res = new
                     {
                         status = true,
-                        message = "Verify Successfully"
+                        message = "Verify Successfully",
+                        token = webToken
                     };
                 }
                 return Ok(res);

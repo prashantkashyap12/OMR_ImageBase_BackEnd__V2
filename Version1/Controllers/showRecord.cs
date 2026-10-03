@@ -1,6 +1,7 @@
 ﻿using System.Data;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
+using System.Text.RegularExpressions;
 using Dapper;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Cors;
@@ -16,6 +17,7 @@ using OpenCvSharp.Aruco;
 using Syncfusion.EJ2.Notifications;
 using TesseractOCR.Renderers;
 using Version1.Data;
+using static System.Runtime.InteropServices.Marshalling.IIUnknownCacheStrategy;
 using static Microsoft.EntityFrameworkCore.DbLoggerCategory;
 
 namespace SQCScanner.Controllers
@@ -677,15 +679,48 @@ namespace SQCScanner.Controllers
             var result = "";
             try
             {
+                var token = Request.Headers["Authorization"].FirstOrDefault()?.Replace("Bearer ", "").Trim();
+                var tokenHandler = new JwtSecurityTokenHandler();
+                var jwtToken = tokenHandler.ReadJwtToken(token);
+                var userId = jwtToken.Claims.FirstOrDefault(c => c.Type == ClaimTypes.NameIdentifier || c.Type == "nameid")?.Value;
+
                 using (var _conn = new SqlConnection(_connectionString))
                 {
                     _conn.Open();
                     var querry = "";
                     dynamic queryResult;
+                    dynamic respose;
                     if (fileName==null)
                     {
-                        querry = "SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES where TABLE_NAME LIKE 'Template%';";
-                        queryResult = _conn.Query(querry);
+                        querry = $"SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES where TABLE_NAME LIKE 'Tem_{userId}%';";
+                        queryResult = _conn.Query(querry).ToList();
+                        respose = _conn.Query(querry);
+
+                        var split = "";
+                        var results = new List<TableInfo>();
+                        foreach (var input1 in queryResult)
+                        {
+                            string input = input1.TABLE_NAME.ToString();
+                            string pattern = @"^(?<userId>Tem_\d+)_\$(?<templateId>\d+)\$_(?<folderName>.*?)_(?<dateTime>\d{2}-\d{2}-\d{4}-\d{2}:\d{2}:\d{2})$";
+                            Match match = Regex.Match(input, pattern);
+                            if (match.Success)
+                            {
+                                int Tempdata = int.Parse(match.Groups["templateId"].Value);
+                                int data = int.Parse(match.Groups["templateId"].Value);
+                                //var TempNameUnq = _context.ImgTemplate.Where(x => x.Id == Tempdata);
+                                //var EmpDetails = _context.empModels.Where(x => x.Id == data);
+                                results.Add(new TableInfo
+                                {
+                                    UserId = match.Groups["userId"].Value,
+                                    TemplateId = match.Groups["templateId"].Value,
+                                    FolderName = match.Groups["folderName"].Value,
+                                    DateTime = match.Groups["dateTime"].Value,
+                                    FileName = input
+                                });
+                            }
+                        }
+                        queryResult = "";
+                        queryResult = results;
 
                     }
                     else
@@ -715,6 +750,14 @@ namespace SQCScanner.Controllers
 
             }
             return Ok(res);
+        }
+        public class TableInfo
+        {
+            public string UserId { get; set; }
+            public string TemplateId { get; set; }
+            public string FolderName { get; set; }
+            public string DateTime { get; set; }
+            public string FileName { get; set; }
         }
 
         [HttpDelete("Delete_Rec")]
@@ -747,14 +790,3 @@ namespace SQCScanner.Controllers
         }
     }
 }
-
-
-
-
-
-
-
-
-
-
-
