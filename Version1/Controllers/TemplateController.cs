@@ -97,10 +97,10 @@ namespace SQCScanner.Controllers
 
                         foreach (var tempUnq in TempNameUnq)
                         {
-                            if (tempUnq == TempName)
+                            if (string.Equals(tempUnq, TempName, StringComparison.OrdinalIgnoreCase))
                             {
                                 exist = false;
-                                break;
+                                return BadRequest("Template Name Already Exist");
                             }
                         }
 
@@ -857,19 +857,6 @@ namespace SQCScanner.Controllers
             dynamic res;
             try
             {
-                //using (SqlConnection connection = getConnection())
-                //{
-                //    await connection.OpenAsync();
-
-                //    using (SqlCommand command = new SqlCommand("TestCases_Proc", connection))
-                //    {
-                //        command.CommandType = System.Data.CommandType.StoredProcedure;
-
-                //        command.Parameters.AddWithValue("@Action", "Delete");
-                //        command.Parameters.AddWithValue("@TestId", testId);
-                //        await command.ExecuteNonQueryAsync();
-                //    }
-                //}
                 var getToken = Request.Headers["Authorization"].FirstOrDefault()?.Replace("Bearer ", "").Trim();
                 var handler = new JwtSecurityTokenHandler();
                 var TokenDecription = handler.ReadJwtToken(getToken);
@@ -882,20 +869,6 @@ namespace SQCScanner.Controllers
                     var directoryPath = "";
                     if (dataTest != null)
                     {
-                        //string crpo = ;
-
-                        //string sharefolder = Path.Combine(Directory.GetCurrentDirectory(), "wFileManager/" + dataTest.TestId.Split('/')[0] + "/"+dataTest.testName);
-                        //Console.WriteLine(sharefolder);
-                        //if (Directory.Exists(sharefolder))
-                        //{
-                        //    Directory.Delete(sharefolder, true);
-                        //}
-
-                        //1. Detele Test Records (Done)
-                        //2. Delete Directory where upload images
-                        //3. Delete DB Table form DB
-
-
                         var data = await _conn.ExecuteAsync($"delete TestCases where TestId = '{testId}'");
                         directoryPath = Path.Combine(_root, Empid, dataTest.testName);
                         if (Directory.Exists(directoryPath))
@@ -907,7 +880,6 @@ namespace SQCScanner.Controllers
                         {
                             res = new { state = true, message = $"{dataTest.testName} Test deleted successfully" };
                         }
-
                     }
                     else
                     {
@@ -978,7 +950,7 @@ namespace SQCScanner.Controllers
             var handler = new JwtSecurityTokenHandler();
             var TokenDecription = handler.ReadJwtToken(getToken);
             var Empid = TokenDecription.Claims.FirstOrDefault(c => c.Type == "nameid")?.Value;
-            Console.WriteLine(Empid);
+
             using (var _conn = new SqlConnection(_connectionString))
             {
                 var dataTest = _conn.QueryFirstOrDefault<TestCreate>($"select * from TestCases where TestName = '{TestName}'");

@@ -62,15 +62,19 @@ namespace Version1.Controllers
 
         //  Process OMR Sheet    
         [HttpPost("process-omr")]
-        public async Task<IActionResult> ProcessOmrSheet(string folderPath, string token, int idTemp, bool IsSaveDb, bool failReScan = true)
+        public async Task<IActionResult> ProcessOmrSheet(string folderPath, int idTemp, bool IsSaveDb, bool failReScan = true)
         {
             dynamic resp;
             _controlService.ResetProcessing();
 
-
+            var getToken = Request.Headers["Authorization"].FirstOrDefault()?.Replace("Bearer ", "").Trim();
+            if (string.IsNullOrWhiteSpace(getToken))
+            {
+                return Unauthorized(new { message = "No token provided" });
+            }
             // Token handler UserId Extract
             var tokenHandler = new JwtSecurityTokenHandler();
-            var jwtToken = tokenHandler.ReadJwtToken(token);
+            var jwtToken = tokenHandler.ReadJwtToken(getToken);
             var userId = jwtToken.Claims.FirstOrDefault(c => c.Type == ClaimTypes.NameIdentifier || c.Type == "nameid")?.Value;
             var userName = jwtToken.Claims.FirstOrDefault(c => c.Type == ClaimTypes.NameIdentifier || c.Type == "unique_name")?.Value;
             var folderPAth = folderPath;
