@@ -849,7 +849,6 @@ namespace SQCScanner.Controllers
             return Ok(res);
         }
 
-
         [HttpDelete]
         [Route("DeleteTest")]
         public async Task<IActionResult> DeleteTest(string testId)
@@ -1002,9 +1001,6 @@ namespace SQCScanner.Controllers
         {
             try
             {
-                // ---------------------------------------------
-                // 1. Validate files
-                // ---------------------------------------------
                 if (files == null || files.Count == 0)
                 {
                     return BadRequest(new
@@ -1023,9 +1019,6 @@ namespace SQCScanner.Controllers
                     });
                 }
 
-                // ---------------------------------------------
-                // 2. Get Employee ID from JWT
-                // ---------------------------------------------
                 var token = Request.Headers["Authorization"]
                     .FirstOrDefault()?
                     .Replace("Bearer ", "")
@@ -1170,21 +1163,19 @@ namespace SQCScanner.Controllers
 
                     string json = JsonSerializer.Serialize(uploadedFile);
 
-                    _webSocketHandler.UserMessageAsync(
-                       empId,
-                       json
-                   );
+                    await _webSocketHandler.UserMessageAsync(empId, json);
                     run++;
                     if (run == 1)
                     {
                         using (var conn = new SqlConnection(_connectionString))
                         {
                             conn.Open();
-                            var qry = "UPDATE TestCases SET status = @Status WHERE TestName = @TestName";
+                            var qry = "UPDATE TestCases SET status = @Status, TotalImages = @TotalImg  WHERE TestName = @TestNames";
                             conn.Execute(qry, new
                             {
                                 Status = "Y",
-                                TestName = TestName
+                                TestNames = TestName,
+                                TotalImg = files.Count
                             });
                             conn.Close();
                         }
@@ -1192,10 +1183,7 @@ namespace SQCScanner.Controllers
                 }
 
                 // Finish WebSocket progress
-                _webSocketHandler.UserMessageAsync(
-                   empId,
-                   ""
-               );
+                await _webSocketHandler.UserMessageAsync( empId, "");
 
 
 
@@ -1203,7 +1191,7 @@ namespace SQCScanner.Controllers
                 {
                     success = true,
                     message = "Image uploaded successfully.",
-                    uploadedCount = uploadedCount,
+                    uploadedCounts = uploadedCount,
                     totalFiles = files.Count
                 });
             }
@@ -1389,8 +1377,8 @@ namespace SQCScanner.Controllers
                         using (var conn = new SqlConnection(_connectionString))
                         {
                             await conn.OpenAsync();
-                            var qry = "UPDATE TestCases SET status = @Status, [TotalImages]=@TotalImages WHERE TestName = @TestName";
-                            await conn.ExecuteAsync(qry, new { Status = "Y", TestName = TestName, TotalImages = TotalImg });
+                            var qry = "UPDATE TestCases SET status = @Status, [TotalImages]=@TotalImages WHERE TestName = @TestNames";
+                            await conn.ExecuteAsync(qry, new { Status = "Y", TestNames = TestName, TotalImages = TotalImg });
                             conn.Close();
                         }
                         isFirstArchiveProcess = false;

@@ -10,7 +10,6 @@
         public bool IsStopRequested => _stopRequested;
 
 
-        // user of power reset
         public void PauseProcessing()
         {
             _pauseEvent.Reset(); 
@@ -21,16 +20,12 @@
             _pauseEvent.Set();
         }
 
-        // Stop
         public void StopProcessing()
         {
             _stopRequested = true;
-
-            // agar paused state me hai to release kar do
             _pauseEvent.Set();
         }
 
-        // Reset before new processing
         public void ResetProcessing()
         {
             _stopRequested = false;

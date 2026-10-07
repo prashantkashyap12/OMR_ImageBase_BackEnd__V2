@@ -5,21 +5,12 @@ namespace SQCScanner.Modal.CustomTemplate
 {
     public class TempDesignClass
     {
-        public class StaticImgDesign
-        {
-            [Key]
-            public int Id { get; set; }
-
-            [Required]
-            public string? TemplateName { get; set; }
-            public string? TemplateId { get; set; }
-            public string? Discription { get; set; }
-            public string? TemplateJSON { get; set; }
-            public string? TemplateImage { get; set; }
-
-            [NotMapped]
-            public IFormFile? TemplateJsonFile { get; set; }
-            public IFormFile? TemplateLogo { get; set; }
-        }
+        public int Id { get; set; }
+        public string? TemplateLogo { get; set; }
+        public string? TemplateBarcode { get; set; }
+        [NotMapped]
+        public IFormFile? TemplateLogoFile { get; set; }
+        [NotMapped]
+        public IFormFile? TemplateBarcodeFile { get; set; }
     }
 }

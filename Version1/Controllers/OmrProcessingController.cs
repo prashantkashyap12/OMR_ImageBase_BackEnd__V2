@@ -13,12 +13,15 @@ using Microsoft.AspNetCore.Cors;
 using System.Text;
 using Microsoft.Data.SqlClient;
 using Dapper;
+using Syncfusion.EJ2.Notifications;
+using ZXing.Aztec.Internal;
 
 namespace Version1.Controllers
 {
     [EnableCors("AllowAnyOrigin")]
     [Route("api/[controller]")]
     [ApiController]
+
     public class OmrProcessingController : ControllerBase
     {
         private readonly OmrProcessingService _omrService;
@@ -30,7 +33,8 @@ namespace Version1.Controllers
         private readonly table_gen _recordTable;
         private readonly ImgSave _imgSave;
         private readonly FindCordinationClass _FindCordinationClass;
-        private readonly IConfiguration _Configuration;  
+        private readonly IConfiguration _Configuration;
+        private string folderPath = "";
 
         public OmrProcessingController(
             OmrProcessingService omrService,
@@ -61,39 +65,35 @@ namespace Version1.Controllers
             }
 
         //  Process OMR Sheet    
+        [AllowAnonymous]
         [HttpPost("process-omr")]
-        public async Task<IActionResult> ProcessOmrSheet(string folderPath, int idTemp, bool IsSaveDb, bool failReScan = true)
+        public async Task<IActionResult> ProcessOmrSheet(processOmr model)
         {
             dynamic resp;
             _controlService.ResetProcessing();
+            model.failReScan = false;
+            //var getToken = Request.Headers["Authorization"].FirstOrDefault()?.Replace("Bearer ", "").Trim();
+            //if (string.IsNullOrWhiteSpace(getToken))
+            //{
+            //    return Unauthorized(new { message = "No token provided" });
+            //}
 
-            var getToken = Request.Headers["Authorization"].FirstOrDefault()?.Replace("Bearer ", "").Trim();
-            if (string.IsNullOrWhiteSpace(getToken))
-            {
-                return Unauthorized(new { message = "No token provided" });
-            }
             // Token handler UserId Extract
             var tokenHandler = new JwtSecurityTokenHandler();
-            var jwtToken = tokenHandler.ReadJwtToken(getToken);
+            var jwtToken = tokenHandler.ReadJwtToken(model.Token);
             var userId = jwtToken.Claims.FirstOrDefault(c => c.Type == ClaimTypes.NameIdentifier || c.Type == "nameid")?.Value;
             var userName = jwtToken.Claims.FirstOrDefault(c => c.Type == ClaimTypes.NameIdentifier || c.Type == "unique_name")?.Value;
-            var folderPAth = folderPath;
+            string folderPAth = "" ;
+            folderPath = Path.Combine(userId, model.folderPath);
 
 
             // Y/N = ReScan failure Img Folder.
             var sharefolder = "";
-            if (failReScan)
-            {
-                sharefolder = Path.Combine("wFileManager/" + folderPath);
-            }
-            else
-            {
-                sharefolder = Path.Combine("RejectImg/" + folderPath);
-            }
+            sharefolder = Path.Combine("wFileManager/" + folderPath);
 
             // Exist path
             folderPath = Path.Combine(Directory.GetCurrentDirectory(), "wFileManager/" + folderPath);
-                if (!Directory.Exists(folderPath))
+            if (!Directory.Exists(folderPath))
             {
                 resp = new
                 {
@@ -105,7 +105,7 @@ namespace Version1.Controllers
             {
                 var imageFiles = Directory.GetFiles(folderPath, "*.*").Where(f => f.EndsWith(".jpg") || f.EndsWith(".png") || f.EndsWith(".jpeg") || f.EndsWith(".tif")).ToList();
                 var Targetjson = string.Empty;
-                var ReturnDetails = _dbContext.ImgTemplate.FirstOrDefault(x => x.Id == idTemp);
+                var ReturnDetails = _dbContext.ImgTemplate.FirstOrDefault(x => x.Id == model.idTemp);
                 Console.WriteLine(ReturnDetails);
                 string imageUrl = ReturnDetails.imgPath;
                 string templateName = ReturnDetails.FileName;
@@ -143,6 +143,7 @@ namespace Version1.Controllers
                                     break;
                                 }
 
+
                                 // Scaning to get data from OMR Sheet
                                 var res = await _omrService.ProcessOmrSheet(imagePath, templatePath, imageUrl, ser, userName);
                                 results.Add(res);
@@ -150,26 +151,43 @@ namespace Version1.Controllers
                                 {
                                     if (crttb == 1)
                                     {
-                                        var tableCrt = await _recordTable.TableCreation(res, idTemp, folderPAth, userId, idTemp);
+                                        var tableCrt = await _recordTable.TableCreation(res, model.idTemp, model.folderPath, userId, model.idTemp);
                                     }
                                     crttb++;
                                 }
                                 dynamic dbRes = null;
 
                                 // 1. Save_Record into DB         - Done 
-                                dbRes = await _SaveOnly.RecordSaveVal(res, idTemp, userName, IsSaveDb, folderPAth, imagePath, templateName);
-                                if (IsSaveDb)
-                                {
+                                dbRes = await _SaveOnly.RecordSaveVal(res, model.idTemp, userName, model.IsSaveDb, folderPAth, imagePath, templateName);
+
                                 // 2. Save_Sacanned Img Folder    - Done
+                                if (model.IsSaveDb)
+                                {
                                     var stat = res.Success;
-                                    var SaveRoot = await _imgSave.ScanedSave(_env.WebRootPath, imagePath, idTemp, stat);
+                                    var SaveRoot = await _imgSave.ScanedSave(_env.WebRootPath, imagePath, model.idTemp, stat);
                                 }
+
+                                // RealTime images left
+                                using (var _conn = new SqlConnection(_Configuration.GetConnectionString("dbc")))
+                                {
+                                    await _conn.OpenAsync();
+                                    string testStatus = "";
+                                    int TotCount = imageFiles.Count() - ser;
+                                    if (imageFiles.Count == ser)
+                                    {
+                                        testStatus = $", status='C'";
+                                    }
+                                    await _conn.ExecuteAsync($@"update TestCases Set TotalImages = {TotCount} {testStatus} where TestName = '{model.folderPath}'");
+                                }
+
                                 // 3. WS_Handler                  - Done
                                 string jsonResult = JsonSerializer.Serialize(dbRes);
                                 userId = Convert.ToString(userId);
                                 await _webSocketHandler.UserMessageAsync(userId, jsonResult);
+
+
                             }
-                            await _webSocketHandler.UserMessageAsync(userId, totalCount);
+                            //await _webSocketHandler.UserMessageAsync(userId, totalCount);
                             await _webSocketHandler.UserMessageAsync(userId, "");
 
                             // Download CSV 
@@ -210,6 +228,14 @@ namespace Version1.Controllers
             {
                 return NotFound(resp);
             }
+        }
+
+        public class processOmr {
+            public string folderPath { get; set; } = "";
+            public int idTemp { get; set; }
+            public bool IsSaveDb { get; set; } = true;
+            public bool failReScan { get; set; } = false;
+            public string Token { get; set; } = "";
         }
 
         // Data Push procesing

@@ -17,6 +17,7 @@ using Serilog;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.OpenApi.Models;
 
+
 var builder = WebApplication.CreateBuilder(args);
 Log.Logger = new LoggerConfiguration().ReadFrom.Configuration(builder.Configuration).CreateLogger();
 builder.Host.UseSerilog();  
@@ -40,6 +41,7 @@ builder.Services.AddScoped<RealtimeCSV_Rec>();
 builder.Services.AddSingleton<OmrProcessingControlService>();
 builder.Services.AddSingleton<WebSocketConnectionManager>();
 builder.Services.AddSingleton<WebSoketHandler>();
+
 builder.Services.AddScoped<MargeGenSerivce>();
 builder.Services.AddScoped<EmailSendClass>();
 builder.Services.AddScoped<BravoServices>();
@@ -47,6 +49,8 @@ builder.Services.AddHttpClient();
 var configuration = builder.Configuration;
 builder.Services.AddJwtAuthentication(configuration);
 builder.Services.AddControllers();            // Add Base controller.
+builder.Services.AddHttpContextAccessor();
+
 builder.Services.AddEndpointsApiExplorer();   // Make meta data for get/post for swagger
 builder.Services.AddSwaggerGen();             // Gen UI Swagger
 builder.Services.AddHttpClient();
@@ -181,6 +185,8 @@ app.Use(async (context, next) =>
         // 4. Get services
         var connectionManager = context.RequestServices.GetRequiredService<WebSocketConnectionManager>();
         var handlerService = context.RequestServices.GetRequiredService<WebSoketHandler>();
+        var controlService = context.RequestServices.GetRequiredService<OmrProcessingControlService>();
+
         connectionManager.RemoveSocket(userId);  // Remove socket before adding new using UserId (f5, newTab etc)
 
         // 5. Add socket with userId
@@ -203,6 +209,13 @@ app.Use(async (context, next) =>
                 {
                     break;
                 }
+
+                var message = Encoding.UTF8.GetString(buffer, 0, result.Count);
+
+                Console.WriteLine($"Received WebSocket message: {message}");
+
+                handlerService.HandleControlMessage(message);
+
             }
         }
         catch (WebSocketException wsex)
@@ -215,19 +228,41 @@ app.Use(async (context, next) =>
         }
         finally
         {
-            //Remove Soket
+            ////Remove Soket
+            //connectionManager.RemoveSocket(userId);
+
+            //if (socket.State != WebSocketState.Closed && socket.State != WebSocketState.Aborted)
+            //{
+            //    try
+            //    {
+            //        //  Yahan cleanup karo: jaise file close, socket close, memory free
+            //        await socket.CloseAsync(WebSocketCloseStatus.NormalClosure, "Closing", CancellationToken.None);
+            //    }
+            //    catch (Exception closeEx)
+            //    {
+            //        Console.WriteLine($"Error while closing socket: {closeEx.Message}");
+            //    }
+            //}
+            // WebSocket disconnect/close hone par OMR processing stop karo
+            controlService.StopProcessing();
+
+            // Remove socket
             connectionManager.RemoveSocket(userId);
 
-            if (socket.State != WebSocketState.Closed && socket.State != WebSocketState.Aborted)
+            if (socket.State != WebSocketState.Closed &&
+                socket.State != WebSocketState.Aborted)
             {
                 try
                 {
-                    //  Yahan cleanup karo: jaise file close, socket close, memory free
-                    await socket.CloseAsync(WebSocketCloseStatus.NormalClosure, "Closing", CancellationToken.None);
+                    await socket.CloseAsync(
+                        WebSocketCloseStatus.NormalClosure,
+                        "Closing",
+                        CancellationToken.None);
                 }
                 catch (Exception closeEx)
                 {
-                    Console.WriteLine($"Error while closing socket: {closeEx.Message}");
+                    Console.WriteLine(
+                        $"Error while closing socket: {closeEx.Message}");
                 }
             }
         }
