@@ -10,6 +10,8 @@ using SQCScanner.Services;
 using static Version1.Controllers.OmrProcessingController;
 using System.Net.Http.Headers;
 using ZXing.Aztec.Internal;
+using Newtonsoft.Json;
+using System;
 namespace SQCScanner.websoketManager
 {
     public class WebSoketHandler
@@ -83,38 +85,42 @@ namespace SQCScanner.websoketManager
         }
 
 
-        public async Task HandleControlMessage(string message)
+        public async Task HandleControlMessage(string message, WebSocket webSocket)
         {
+            var request = JObject.Parse(message);
+            var action = request["action"]?.ToString()?.ToLower();
+            bool success = true;
+            string responseMessage = "";
             try
             {
-                var request = JObject.Parse(message);
-
-                var action = request["action"]?.ToString()?.ToLower();
 
                 switch (action)
                 {
                     case "pause":
                         _controlService.PauseProcessing();
-                        Console.WriteLine("OMR Processing Paused");
+                        responseMessage = "OMR Processing Paused Successfully";
+                        Console.WriteLine(responseMessage);
                         break;
 
                     case "resume":
                         _controlService.ResumeProcessing();
-                        Console.WriteLine("OMR Processing Resumed");
+                        responseMessage = "OMR Processing Resumed Successfully";
+                        Console.WriteLine(responseMessage);
                         break;
 
                     case "stop":
                         _controlService.StopProcessing();
-                        Console.WriteLine("OMR Processing Stopped");
+                        responseMessage = "OMR Processing Stopped Successfully";
+                        Console.WriteLine(responseMessage);
                         break;
 
                     case "reset":
                         _controlService.ResetProcessing();
-                        Console.WriteLine("OMR Processing Reset");
+                        responseMessage = "OMR Processing Reset Successfully";
+                        Console.WriteLine(responseMessage);
                         break;
 
                     case "process":
-
                         var model = new processOmr
                         {
                             folderPath = request["folderPath"]?.ToString() ?? "",
@@ -123,24 +129,85 @@ namespace SQCScanner.websoketManager
                             failReScan = true,
                             Token = request["token"]?.ToString() ?? ""
                         };
-                        var result = await ProcessOmrApi(model);
+                        try
+                        {
 
-                        Console.WriteLine(
-                            result
-                            ? "OMR API called successfully"
-                            : "OMR API call failed"
-                        );
+                            var result = await ProcessOmrApi(model);
+                            success = result;
+                            responseMessage = result
+                                ? "OMR API Called Successfully"
+                                : "OMR Processing Failed";
+                        }
+                        catch (Exception ex)
+                        {
+                            responseMessage = ex.Message;
+                        }
                         break;
 
                     default:
-                        Console.WriteLine($"Unknown WebSocket action: {action}");
+                        success = false;
+                        responseMessage = $"Unknown WebSocket action: {action}";
+                        Console.WriteLine(responseMessage);
                         break;
                 }
             }
             catch (Exception ex)
             {
-                Console.WriteLine(
-                    $"WebSocket control message error: {ex.Message}");
+                Console.WriteLine($"WebSocket control message error: {ex.Message}");
+
+                if (webSocket.State == WebSocketState.Open)
+                {
+                    var errorResponse = new
+                    {
+                        success = false,
+                        message = ex.Message
+                    };
+
+                    string json = Newtonsoft.Json.JsonConvert
+                        .SerializeObject(errorResponse);
+
+                    byte[] bytes = Encoding.UTF8.GetBytes(json);
+
+                    await webSocket.SendAsync(
+                        new ArraySegment<byte>(bytes),
+                        WebSocketMessageType.Text,
+                        true,
+                        CancellationToken.None
+                    );
+                }
+            }
+            try
+            {
+                if (webSocket.State == WebSocketState.Open)
+                {
+                    var response = new
+                    {
+                        action = action,
+                        success = success,
+                        message = responseMessage
+                    };
+
+                    string json = JsonConvert.SerializeObject(response);
+                    byte[] bytes = Encoding.UTF8.GetBytes(json);
+
+                    await webSocket.SendAsync(
+                        new ArraySegment<byte>(bytes),
+                        WebSocketMessageType.Text,
+                        true,
+                        CancellationToken.None
+                    );
+
+                    Console.WriteLine($"WebSocket response sent: {json}");
+                }
+                else
+                {
+                    Console.WriteLine(
+                        $"Cannot send response. WebSocket state: {webSocket.State}");
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"WebSocket response error: {ex.Message}");
             }
         }
 
@@ -226,8 +293,5 @@ namespace SQCScanner.websoketManager
                 return false;
             }
         }
-
-
-
     }
 }

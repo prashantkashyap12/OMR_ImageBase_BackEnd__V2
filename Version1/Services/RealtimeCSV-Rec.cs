@@ -15,17 +15,13 @@ namespace SQCScanner.Services
         }
 
         public async Task<string> RealtimeCSV(
-        string userId,
-        int idTemp,
         Dictionary<string, string> record,
-        string templateName,
-        string folderPAth)
+        string folderPAth, string dirPath)
         {
             //wFileManager/ScanResult
             try
             {
-                string dirPath = Path.Combine("wFileManager", "ScanResult", "CSV_Record", userId, templateName);
-                Directory.CreateDirectory(dirPath);
+                
                 string safeFileName = folderPAth
                     .Replace("\\", "_")
                     .Replace("/", "_");

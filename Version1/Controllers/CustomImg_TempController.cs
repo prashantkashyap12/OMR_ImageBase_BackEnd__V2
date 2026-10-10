@@ -1,16 +1,28 @@
-﻿using System.IdentityModel.Tokens.Jwt;
+﻿using System.ComponentModel.DataAnnotations.Schema;
+using System.ComponentModel.DataAnnotations;
+using System.IdentityModel.Tokens.Jwt;
 using System.IO;
+using DocumentFormat.OpenXml.Drawing.Diagrams;
 using DocumentFormat.OpenXml.Office2010.Excel;
 using DocumentFormat.OpenXml.Wordprocessing;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
+using Org.BouncyCastle.Ocsp;
+using Sentry;
 using SharpCompress.Common;
 using SQCScanner.Modal;
 using SQCScanner.Modal.CustomTemplate;
 using Version1.Data;
+using static System.Runtime.InteropServices.JavaScript.JSType;
 using static SQCScanner.Modal.CustomTemplate.TempDesignClass;
+using DocumentFormat.OpenXml;
+using Microsoft.OpenApi.Expressions;
+using File = System.IO.File;
+
+
 
 namespace SQCScanner.Controllers
 {
@@ -21,9 +33,10 @@ namespace SQCScanner.Controllers
     {
         private readonly ILogger _logger;
         private readonly ApplicationDbContext _dbContext;
-        private readonly IWebHostEnvironment env;
+        private readonly IWebHostEnvironment _env;
+        private readonly string _root = Environment.CurrentDirectory;
 
-        public CustomImg_TempController(ILogger<CustomImg_TempController> logger, ApplicationDbContext dbContext, IWebHostEnvironment _env)
+        public CustomImg_TempController(ILogger<CustomImg_TempController> logger, ApplicationDbContext dbContext, IWebHostEnvironment env)
         {   
             _env = env;
             _logger = logger;
@@ -253,85 +266,291 @@ namespace SQCScanner.Controllers
             }
         }
 
-
-        // Dynamic Template Design
-        [HttpPost("CreateImgTempDesing")]
-        public async Task<IActionResult> CreateImgTempDesing([FromForm] StaticImgDesign model)
+        //dynamic template design
+        [HttpPost("createimgtempDes")]
+        public async Task<IActionResult> createimgtempdesing([FromForm] TempDesignModel model)
         {
+            using var transaction = await _dbContext.Database.BeginTransactionAsync();
             try
             {
-                _logger.LogInformation(
-                   "CreateTemplate started. TemplateId: {TemplateId}, TemplateName: {TemplateName}",
-                   model.TemplateId,
-                   model.TemplateName);
-                  var getToken = Request.Headers["Authorization"].FirstOrDefault()?.Replace("Bearer ", "").Trim();
-                  if (string.IsNullOrWhiteSpace(getToken))
-                  {
-                      return Unauthorized(new { message = "No token provided" });
-                  }
-                  var handler = new JwtSecurityTokenHandler();
-                  var TokenDecription = handler.ReadJwtToken(getToken);
-                  var Empid = TokenDecription.Claims.FirstOrDefault(c => c.Type == "nameid")?.Value;
+                _logger.LogInformation("createtemplate started. templateid: {templateid}, templatename: {templatename}", model.TemplateName, model.Discription, model.TemplateJSON, model.TemplateImg);
 
-                // Save Record Images
-                string uploadsFolder = Path.Combine(env.WebRootPath, "ImageManager");
-                if (!Directory.Exists(uploadsFolder))
+                var gettoken = Request.Headers["authorization"].FirstOrDefault()?.Replace("Bearer ", "").Trim();
+                if (string.IsNullOrEmpty(gettoken))
                 {
-                    Directory.CreateDirectory(uploadsFolder);
-                    _logger.LogInformation("ImageManager folder created.");
+                    return Unauthorized(new { message = "no token provided" });
+                }
+                var handler = new JwtSecurityTokenHandler();
+                var tokendecription = handler.ReadJwtToken(gettoken);
+                var empid = tokendecription.Claims.FirstOrDefault(c => c.Type == "nameid")?.Value;
+
+                // Save Temp image into Directory.
+                if (!string.IsNullOrEmpty(model.TemplateImgFile?.Name))
+                {
+                    string ImguploadsPath = Path.Combine(_env.WebRootPath, "ImageManager");
+                    string? getImgFileName = Path.GetFileName(model.TemplateImgFile?.FileName);
+                    string imgFilePath = Path.Combine(ImguploadsPath, getImgFileName);
+                    using (var fs = new FileStream(imgFilePath, FileMode.Create))
+                    {
+                        await model.TemplateImgFile.CopyToAsync(fs);
+                    }
+                    _logger.LogInformation("Image Created Successfully", getImgFileName);
                 }
 
-                // Save JSON
-                if (!string.IsNullOrEmpty(model.TemplateJsonFile.FileName))
+                // Save json into Directory
+                if (!string.IsNullOrEmpty(model.TemplateJsonFile?.FileName))
                 {
-                    string tempFolder = Path.Combine(env.WebRootPath, "TempManager");
-                    string jsonFileName = Path.GetFileName(model.TemplateJsonFile.FileName);
-                    string jsonFilePath = Path.Combine(tempFolder, jsonFileName);
-                    using (var tempSet = new FileStream(jsonFilePath, FileMode.Create))
+                    string tempfolder = Path.Combine(_env.WebRootPath, "TempManager");
+                    string jsonfilename = Path.GetFileName(model.TemplateJsonFile.FileName);
+                    string jsonfilepath = Path.Combine(tempfolder, jsonfilename);
+                    using (var tempset = new FileStream(jsonfilepath, FileMode.Create))
                     {
-                        await model.TemplateJsonFile.CopyToAsync(tempSet);
+                        await model.TemplateJsonFile.CopyToAsync(tempset);
+                    }
+                    _logger.LogInformation("JSON Template has been create", jsonfilename);
+                }
+
+                // Save Logo into Directory
+                string directoryPath = Path.Combine(_root, "wFileManager", empid, "TempalteDesign");
+                if (!string.IsNullOrEmpty(model.TemplateLogoFile?.Name))
+                {
+                    if (!Directory.Exists(directoryPath))
+                    {
+                        Directory.CreateDirectory(directoryPath);
+                    }
+                    using (var tempImg = new FileStream(Path.Combine(directoryPath, model.TemplateLogoFile.FileName), FileMode.Create))
+                    {
+                        await model.TemplateLogoFile.CopyToAsync(tempImg);
                     }
                 }
 
-
-                using (var memoryStream = new MemoryStream())
+                // Save Barcode into Directory
+                if (!string.IsNullOrEmpty(model.TemplateBarcodeFile?.Name))
                 {
-                    await model.TemplateLogo.CopyToAsync(memoryStream);
-                    var imageBytes = memoryStream.ToArray();
-                    var base64String = Convert.ToBase64String(imageBytes);
-
-                    var templateEnA = new StaticImgDesign
+                    if (!Directory.Exists(directoryPath))
                     {
-                        TemplateImage = base64String,
-                        TemplateJSON = base64String,
-                        Discription = model.Discription,
-                        TemplateId = model.TemplateId,
-                        TemplateName = model.TemplateName
-                    };
-                    _dbContext.staticImgDesigns.Add(templateEnA);
-                    await _dbContext.SaveChangesAsync();
-
-                    _logger.LogInformation(
-                       "Template created successfully. TemplateId: {TemplateId}, TemplateName: {TemplateName}",
-                       templateEnA.TemplateId,
-                       templateEnA.TemplateName);
-
+                        Directory.CreateDirectory(directoryPath);
+                    }
+                    using (var tempImg = new FileStream(Path.Combine(directoryPath, model.TemplateBarcodeFile.FileName), FileMode.Create))
+                    {
+                        await model.TemplateBarcodeFile.CopyToAsync(tempImg);
+                    }
                 }
+
+                DateTime date = DateTime.Now;
+                var imgTemp = _dbContext.Add(new ImgTemp
+                {
+                    FileName = model.TemplateName,
+                    imgPath = Path.Combine("ImageManager", model.TemplateImgFile?.FileName),
+                    JsonPath = Path.Combine("TempManager", model.TemplateJsonFile?.FileName),
+                    CreateAt = date.ToString(),
+                    discription = model.Discription
+                });
+                await _dbContext.SaveChangesAsync();
+                int getLastInsert = imgTemp.Entity.Id;
+
+                var templateena = new TempDesignClass
+                {
+                    TemplateLogo = model.TemplateLogoFile != null ? Path.Combine("wFileManager", empid, "TempalteDesign", model.TemplateLogoFile.FileName) : "",
+                    TemplateBarcode = model.TemplateBarcodeFile != null ? Path.Combine("wFileManager", empid, "TempalteDesign", model.TemplateBarcodeFile.FileName): "",
+                    TemplateId = getLastInsert
+                };
+                _dbContext.Add(templateena);
+                await _dbContext.SaveChangesAsync();
+                await transaction.CommitAsync();
+                _logger.LogInformation("Designed Template has been created successfully");
+                return Ok(new
+                {
+                    success = true,
+                    message = "Desgin Template Create successfully."
+                });
             }
-            catch (Exception ex) { 
-            
+            catch (Exception ex)
+            {
+                await transaction.RollbackAsync();
+                _logger.LogError(ex, "");
+                return StatusCode(StatusCodes.Status500InternalServerError, "An error occurred while deleting the template.");
             }
-
-
-
-
-
-
-
-            return Ok();
         }
 
+        [HttpGet]
+        [Route("getimgtempDes")]
+        public async Task<IActionResult> createimgtempDes(int? TempId = 0)
+        {
+            try
+            {
+                _logger.LogInformation("StartGet design list records");
+                var result = await _dbContext.ImgTemplate.Join(_dbContext.staticImgDesigns, tempId => tempId.Id, TempDesign => TempDesign.TemplateId, (tempId, TempDesign) => new { TemplateId = tempId.Id, TemplateName = tempId.FileName, ImgPath = tempId.imgPath, jsonPath = tempId.JsonPath, Create = tempId.CreateAt, discriotion = tempId.discription, TemplateDesignBar = TempDesign.TemplateLogo, TemplateDesignImg = TempDesign.TemplateBarcode }).ToListAsync();
+                dynamic dataRec;
+                if (TempId == 0)
+                {
+                    dataRec = result;
+                }
+                else
+                {
 
+                    dataRec = result.Where(id => id.TemplateId == TempId);
+                }
+                Console.WriteLine(dataRec);
+
+                return Ok(dataRec);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "");
+                return StatusCode(StatusCodes.Status500InternalServerError, "");
+            }
+        }
+
+        [HttpDelete]
+        [Route("DeleteimgtempDes")]
+        public async Task<IActionResult> DeleteimgtempDes(int TempId = 0)
+        {
+            try
+            {
+                //_logger.LogInformation();
+                var resp1 = await _dbContext.ImgTemplate.FirstOrDefaultAsync(a => a.Id == TempId);
+                var resp2 = await _dbContext.staticImgDesigns.FirstOrDefaultAsync(a => a.TemplateId == TempId);
+                if(resp1==null && resp2 == null)
+                {
+                    return BadRequest("Plese share currect template Id with api");
+                }
+
+                _logger.LogInformation("Record delete Tempalte List and ");
+                _dbContext.ImgTemplate.Remove(resp1);
+                _dbContext.staticImgDesigns.Remove(resp2);
+                await _dbContext.SaveChangesAsync();
+
+                // Tempalate JSON 
+                if (!string.IsNullOrEmpty(resp1.JsonPath))
+                {
+                    var path = Path.Combine(_env.WebRootPath, resp1.JsonPath);
+                    System.IO.File.Delete(path);
+                }
+                // Template Image
+                if (!string.IsNullOrEmpty(resp1.imgPath))
+                {
+                    var path = Path.Combine(_env.WebRootPath, resp1.imgPath);
+                    System.IO.File.Delete(path);
+                }
+
+                // Design Image
+                if (!string.IsNullOrEmpty(resp2.TemplateLogo))
+                {
+                    var path = Path.Combine(_env.ContentRootPath, resp2.TemplateLogo);
+                    System.IO.File.Delete(path);
+                }
+
+                // Desgin Barcode 
+                if (!string.IsNullOrEmpty(resp2.TemplateBarcode))
+                {
+                    var path = Path.Combine(_env.ContentRootPath, resp2.TemplateBarcode);
+                    System.IO.File.Delete(path);
+                }
+                return Ok("Template Deleted successfully");
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError, ex);
+            }
+        }
+
+        [HttpPut]
+        [Route("UpdateImgtempDes")]
+        public async Task<IActionResult> UpdateImgtempDes(TempDesignModel model)
+        {
+            try
+            {
+                var TemplateManager = _dbContext.ImgTemplate.Where(a => a.Id == model.Id);
+                var Templatedesign = _dbContext.staticImgDesigns.Where(a => a.Id == model.Id);
+                var gettoken = Request.Headers["authorization"].FirstOrDefault()?.Replace("Bearer ", "").Trim();
+                if (string.IsNullOrEmpty(gettoken))
+                {
+                    return Unauthorized(new { message = "no token provided" });
+                }
+                var handler = new JwtSecurityTokenHandler();
+                var tokendecription = handler.ReadJwtToken(gettoken);
+                var empid = tokendecription.Claims.FirstOrDefault(c => c.Type == "nameid")?.Value;
+
+                // Tempalate JSON 
+                if (!string.IsNullOrEmpty(model.TemplateJsonFile?.FileName))
+                {
+                    var path = Path.Combine(_env.WebRootPath, model.TemplateJsonFile?.FileName);
+                    System.IO.File.Delete(path);
+
+                    string ImguploadsPath = Path.Combine(_env.WebRootPath, "TempManager");
+                    using (var fs = new FileStream(Path.Combine(_env.WebRootPath, "TempManager", model.TemplateJsonFile?.FileName), FileMode.Create))
+                    {
+                        await model.TemplateJsonFile.CopyToAsync(fs);
+                    }
+                }
+
+                // Template Image
+                if (!string.IsNullOrEmpty(model.TemplateImgFile?.FileName))
+                {
+                    var path = Path.Combine(_env.WebRootPath, model.TemplateImgFile?.FileName);
+                    System.IO.File.Delete(path);
+                    using (var fs = new FileStream(Path.Combine(_env.WebRootPath, "ImageManager", model.TemplateImgFile?.FileName), FileMode.Create))
+                    {
+                        await model.TemplateImgFile.CopyToAsync(fs);
+                    }
+                }
+
+                // Design Image
+                string directoryPath = Path.Combine(_root, "wFileManager", empid, "TempalteDesign");
+                if (!string.IsNullOrEmpty(model.TemplateLogoFile?.FileName))
+                {
+                    var path = Path.Combine(_env.ContentRootPath, model.TemplateLogoFile?.FileName);
+                    System.IO.File.Delete(path);
+                    using (var tempImg = new FileStream(Path.Combine(directoryPath, model.TemplateLogoFile.FileName), FileMode.Create))
+                    {
+                        await model.TemplateLogoFile.CopyToAsync(tempImg);
+                    }
+                }
+
+                // Desgin Barcode 
+                if (!string.IsNullOrEmpty(model.TemplateBarcodeFile?.FileName))
+                {
+                    var path = Path.Combine(_env.ContentRootPath, model.TemplateBarcodeFile?.FileName);
+                    System.IO.File.Delete(path);
+                    using (var tempImg = new FileStream(Path.Combine(directoryPath, model.TemplateBarcodeFile.FileName), FileMode.Create))
+                    {
+                        await model.TemplateBarcodeFile.CopyToAsync(tempImg);
+                    }
+                }
+                
+                
+                
+                
+                
+                
+                return Ok();
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError, "");
+            }
+        }
+        public class TempDesignModel
+        {
+            public int Id { get; set; }
+            public string? TemplateName { get; set; } = "";
+            public string? TemplateId { get; set; } = "";
+            public string? Discription { get; set; } = "";
+            public string? TemplateJSON { get; set; } = "";
+            public string? TemplateImg { get; set; } = "";
+            public string? TemplateLogo { get; set; } = "";
+            public string? TemplateBarcode { get; set; } = "";
+
+            [NotMapped]
+            public IFormFile? TemplateJsonFile { get; set; }
+            [NotMapped]
+            public IFormFile? TemplateImgFile { get; set; }
+            [NotMapped]
+            public IFormFile? TemplateLogoFile { get; set; }
+            [NotMapped]
+            public IFormFile? TemplateBarcodeFile { get; set; }
+        }
 
     }
 }

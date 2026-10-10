@@ -214,7 +214,7 @@ app.Use(async (context, next) =>
 
                 Console.WriteLine($"Received WebSocket message: {message}");
 
-                handlerService.HandleControlMessage(message);
+                handlerService.HandleControlMessage(message, socket);
 
             }
         }

@@ -80,7 +80,7 @@ namespace Version1.Controllers
 
             // Token handler UserId Extract
             var tokenHandler = new JwtSecurityTokenHandler();
-            var jwtToken = tokenHandler.ReadJwtToken(model.Token);
+           var jwtToken = tokenHandler.ReadJwtToken(model.Token);
             var userId = jwtToken.Claims.FirstOrDefault(c => c.Type == ClaimTypes.NameIdentifier || c.Type == "nameid")?.Value;
             var userName = jwtToken.Claims.FirstOrDefault(c => c.Type == ClaimTypes.NameIdentifier || c.Type == "unique_name")?.Value;
             string folderPAth = "" ;
@@ -148,7 +148,7 @@ namespace Version1.Controllers
                                 var res = await _omrService.ProcessOmrSheet(imagePath, templatePath, imageUrl, ser, userName);
                                 results.Add(res);
                                 if (true)
-                                {
+                                { 
                                     if (crttb == 1)
                                     {
                                         var tableCrt = await _recordTable.TableCreation(res, model.idTemp, model.folderPath, userId, model.idTemp);
@@ -158,13 +158,13 @@ namespace Version1.Controllers
                                 dynamic dbRes = null;
 
                                 // 1. Save_Record into DB         - Done 
-                                dbRes = await _SaveOnly.RecordSaveVal(res, model.idTemp, userName, model.IsSaveDb, folderPAth, imagePath, templateName);
+                                dbRes = await _SaveOnly.RecordSaveVal(res, model.idTemp, userName, model.IsSaveDb, model.folderPath, imagePath, templateName, userId);
 
                                 // 2. Save_Sacanned Img Folder    - Done
                                 if (model.IsSaveDb)
                                 {
                                     var stat = res.Success;
-                                    var SaveRoot = await _imgSave.ScanedSave(_env.WebRootPath, imagePath, model.idTemp, stat);
+                                    var SaveRoot = await _imgSave.ScanedSave(_env.WebRootPath, imagePath, model.idTemp, stat, userId, folderPAth);
                                 }
 
                                 // RealTime images left
@@ -234,7 +234,7 @@ namespace Version1.Controllers
             public string folderPath { get; set; } = "";
             public int idTemp { get; set; }
             public bool IsSaveDb { get; set; } = true;
-            public bool failReScan { get; set; } = false;
+            public bool failReScan { get; set; } = true;
             public string Token { get; set; } = "";
         }
 

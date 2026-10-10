@@ -29,9 +29,6 @@ namespace SQCScanner.Services
                 string dateCurrent = DateTime.Now.ToString("dd-MM-yyyy/HH:mm:ss");
                 string getFolderName = new DirectoryInfo(folderPAth).Name;
                 string tableName = $"Tem_{userId}_${idTemp}$_{getFolderName}";
-
-
-
                 string checkTableSql = @"SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME LIKE @TableName";
                 var exists = await connection.QueryFirstOrDefaultAsync(checkTableSql, new { TableName = tableName+"%" });
                 bool tableExists = exists != null;
@@ -40,12 +37,14 @@ namespace SQCScanner.Services
                     .OrderBy(fr => fr.Index)
                     .Select(fr => fr.Key)
                     .ToList();
-                fieldNames.AddRange(fields);    
-
+                fieldNames.AddRange(fields);
+                fields.Add("QC_Status");
                 if (!tableExists)
                 {
                     tableName = $"{tableName}_{dateCurrent}";
                     var columnsSql = string.Join(", ", fields.Select(f => $"[{f}] NVARCHAR(MAX)"));
+                    Console.WriteLine(columnsSql);
+
                     string createTableSql = $"CREATE TABLE [{tableName}] (Id INT IDENTITY(1,1) PRIMARY KEY, {"[LiveTime] NVARCHAR(MAX)"},{"[UserName] NVARCHAR(MAX)"},{"[Status] NVARCHAR(MAX)"}, {"[Report] NVARCHAR(MAX)"}, {columnsSql})"; 
                     await connection.QueryAsync(createTableSql);
                 }

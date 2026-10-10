@@ -692,7 +692,7 @@ namespace SQCScanner.Controllers
                     dynamic respose;
                     if (fileName==null)
                     {
-                        querry = $"SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES where TABLE_NAME LIKE 'Tem_{userId}%';";
+                        querry = $"SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES where TABLE_NAME LIKE 'Tem[_]{userId}[_]%';";
                         queryResult = _conn.Query(querry).ToList();
                         respose = _conn.Query(querry);
 

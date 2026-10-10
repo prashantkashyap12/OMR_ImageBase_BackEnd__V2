@@ -87,7 +87,7 @@ namespace SQCScanner.Controllers
                 RefranceId = refranceId,
                 contact = Phone 
             };
-            var jwtAuth = _jwtTokenGen.GenerateJwtToken(emp);
+            var jwtAuth =await _jwtTokenGen.GenerateJwtToken(emp);
 
             using (var _conn = new SqlConnection(_connectionString))
             {
@@ -139,7 +139,7 @@ namespace SQCScanner.Controllers
 
             var ReturnDetails = _DbContext.empModels.FirstOrDefault(x => x.EmpEmail == empEmail);
 
-            var jwtAuth = _jwtTokenGen.GenerateJwtToken(ReturnDetails);
+            var jwtAuth =await _jwtTokenGen.GenerateJwtToken(ReturnDetails);
 
             using (var _conn = new SqlConnection(_connectionString))
             {
@@ -421,7 +421,7 @@ namespace SQCScanner.Controllers
                 if (dataFind.UserOtp == Otp)
                 {
                     dataFind.IsLoggedIn = true;
-                    token1 = _jwtTokenGen.GenerateJwtToken(dataFind);
+                    token1 = await _jwtTokenGen.GenerateJwtToken(dataFind);
                     res = new
                     {
                         state = true,
@@ -682,7 +682,7 @@ namespace SQCScanner.Controllers
                     }
                     else
                     {
-                        token = _jwtTokenGen.GenerateJwtToken(ReturnDetails);   
+                        token = await _jwtTokenGen.GenerateJwtToken(ReturnDetails);   
                         string qurry = null;
                         using (var _conn = new SqlConnection(_connectionString))
                         {

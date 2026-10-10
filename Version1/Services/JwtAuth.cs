@@ -8,7 +8,7 @@ namespace SQCScanner.Services
 {
     public class JwtAuth
     {
-        public string GenerateJwtToken(EmpModel emp)
+        public async Task<string> GenerateJwtToken(EmpModel emp)
         {
             var tokenHandler = new JwtSecurityTokenHandler();
             var key = Encoding.UTF8.GetBytes("aEj7A6mr5yVoDx0wq1jUj0A6xhb/8I+YJ0T+Y8h2sJk=");

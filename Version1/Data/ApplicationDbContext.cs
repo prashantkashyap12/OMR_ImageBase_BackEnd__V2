@@ -38,6 +38,7 @@ namespace Version1.Data
             modelBuilder.Entity<Transaction>(ef => { ef.HasKey(e => e.SrId); });
             modelBuilder.Entity<Packages>(ef => { ef.HasKey(e => e.PackId); });
             modelBuilder.Entity<StaticImgClass>().HasKey(e => e.Id);
+            modelBuilder.Entity<TempDesignClass>().HasKey(e => e.Id);
         }
-}
+    }
 }

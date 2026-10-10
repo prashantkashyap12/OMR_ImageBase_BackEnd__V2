@@ -565,7 +565,7 @@ namespace SQCScanner.Controllers
                 var handler = new JwtSecurityTokenHandler();
                 var TokenDecription = handler.ReadJwtToken(getToken);
                 var Empid = TokenDecription.Claims.FirstOrDefault(c => c.Type == "nameid")?.Value;
-                var directoryPath = Path.Combine(_root, Empid, model.testName);
+                var directoryPath = Path.Combine(_root, Empid, model.testName.Trim());
                 if (!string.IsNullOrWhiteSpace(model.TemplateId))
                 {
                     int tempId = Convert.ToInt32(model.TemplateId);
@@ -579,13 +579,13 @@ namespace SQCScanner.Controllers
                 using (var _conn = new SqlConnection(_connectionString))
                 {
                     await _conn.OpenAsync();
-                     var querryA = $"SELECT * FROM TestCases WHERE TestName = '{model.testName}' AND EmpId = '{Empid}'";
+                     var querryA = $"SELECT * FROM TestCases WHERE TestName = '{model.testName.Trim()}' AND EmpId = '{Empid}'";
                      var isExist = _conn.QueryFirstOrDefault<TestCreate>(querryA);
                      var firstValue = isExist?.TestId.Split('/')[0];
                      
                     if(isExist == null)
                     {
-                        var querry = $"insert into TestCases (TemplateId, TestName, TestId, Notes, status, EmpId, TotalImages) values ('{model.TemplateId}', '{model.testName}', '{model.TestId}', '{model.notes}', 'N', '{Empid}', '')";
+                        var querry = $"insert into TestCases (TemplateId, TestName, TestId, Notes, status, EmpId, TotalImages) values ('{model.TemplateId}', '{model.testName.Trim()}', '{model.TestId}', '{model.notes}', 'N', '{Empid}', '')";
                         _conn.ExecuteAsync(querry);
                         if (!Directory.Exists(directoryPath))
                         {
@@ -605,7 +605,7 @@ namespace SQCScanner.Controllers
                         }
                         else
                         {
-                            var querry = $"insert into TestCases (TemplateId, TestName, TestId, Notes, status, TotalImages) values ('{model.TemplateId}', '{model.testName}', '{model.TestId}', '{model.notes}', 'N', '')";
+                            var querry = $"insert into TestCases (TemplateId, TestName, TestId, Notes, status, TotalImages) values ('{model.TemplateId}', '{model.testName.Trim()}', '{model.TestId}', '{model.notes}', 'N', '')";
                             _conn.ExecuteAsync(querry);
                             if (!Directory.Exists(directoryPath))
                             {
@@ -641,7 +641,7 @@ namespace SQCScanner.Controllers
                 var handler = new JwtSecurityTokenHandler();
                 var TokenDecription = handler.ReadJwtToken(getToken);
                 var Empid = TokenDecription.Claims.FirstOrDefault(c => c.Type == "nameid")?.Value;
-                var directoryPath = Path.Combine(_root, Empid, model.testName);
+                var directoryPath = Path.Combine(_root, Empid, model.testName.Trim());
 
                 string testId = string.Empty;
                 DateTime now = DateTime.Now;
@@ -668,13 +668,13 @@ namespace SQCScanner.Controllers
                 using (var _conn = new SqlConnection(_connectionString))
                 {
                     await _conn.OpenAsync();
-                    var querryA = $"SELECT * FROM TestCases WHERE TestName = '{model.testName}' AND EmpId = '{Empid}'";
+                    var querryA = $"SELECT * FROM TestCases WHERE TestName = '{model.testName.Trim()}' AND EmpId = '{Empid}'";
                     var isExist = _conn.QueryFirstOrDefault<TestCreate>(querryA);
                     var firstValue = isExist?.TestId.Split('/')[0];
 
                     if (isExist == null)
                     {
-                        var querry = $"insert into TestCases (TemplateId, TestName, TestId, Notes, status, EmpId, TotalImages) values ('{model.TemplateId}', '{model.testName}', '{testId}', '{model.notes}', 'N', '{Empid}','')";
+                        var querry = $"insert into TestCases (TemplateId, TestName, TestId, Notes, status, EmpId, TotalImages) values ('{model.TemplateId}', '{model.testName.Trim()}', '{testId}', '{model.notes}', 'N', '{Empid}','')";
                         _conn.ExecuteAsync(querry);
                         if (!Directory.Exists(directoryPath))
                         {
@@ -695,7 +695,7 @@ namespace SQCScanner.Controllers
                         }
                         else
                         {
-                            var querry = $"insert into TestCases (TemplateId, TestName, TestId, Notes, status, TotalImages) values ('{model.TemplateId}', '{model.testName}', '{testId}', '{model.notes}', 'N', '')";
+                            var querry = $"insert into TestCases (TemplateId, TestName, TestId, Notes, status, TotalImages) values ('{model.TemplateId}', '{model.testName.Trim()}', '{testId}', '{model.notes}', 'N', '')";
                             _conn.ExecuteAsync(querry);
                             if (!Directory.Exists(directoryPath))
                             {
@@ -728,7 +728,7 @@ namespace SQCScanner.Controllers
                 {
                     _conn.Open();
 
-                    string query = "SELECT * FROM TestCases";
+                    string query = "SELECT * FROM TestCases ";
 
                     var data = await _conn.QueryAsync<TestCreate>(query);
 
@@ -786,7 +786,6 @@ namespace SQCScanner.Controllers
         public async Task<IActionResult> GetTestEmp([FromBody] ListCount model)
         {
             dynamic res;
-
             try
             {
                 var getToken = Request.Headers["Authorization"].FirstOrDefault()?.Replace("Bearer ", "").Trim();
@@ -803,27 +802,18 @@ namespace SQCScanner.Controllers
                 {
                     _conn.Open();
 
-                    string query = $"SELECT * FROM TestCases where EmpId={Empid}";
+                    string query = $"SELECT * FROM TestCases where EmpId={Empid} Order by Sr DESC";
 
                     var data = await _conn.QueryAsync<TestCreate>(query);
-
                     var totalcount = data.Count();
-
                     if (!string.IsNullOrEmpty(model.search))
                     {
                         string search = model.search.ToLower();
-
-                        data = data.Where(x =>
-                            (!string.IsNullOrEmpty(x.TestId) && x.TestId.ToLower().Contains(search)) ||
-                            (!string.IsNullOrEmpty(x.testName) && x.testName.ToLower().Contains(search))
-                        );
+                        data = data.Where(x => (!string.IsNullOrEmpty(x.TestId) && x.TestId.ToLower().Contains(search)) || (!string.IsNullOrEmpty(x.testName) && x.testName.ToLower().Contains(search)));
                     }
                     else
                     {
-                        data = data
-                            .OrderBy(x => x.Sr)
-                            .Skip((model.page - 1) * model.range)
-                            .Take(model.range);
+                        data = data.OrderByDescending(x => x.Sr).Skip((model.page - 1) * model.range).Take(model.range);
                     }
 
                     res = new
@@ -908,7 +898,7 @@ namespace SQCScanner.Controllers
                     var isExist = _conn.ExecuteScalar<int>($"select COUNT(1) from TestCases where TestId = '{model.TestId}'");
                     if (isExist > 0)
                     {
-                        var qurry = $"update TestCases set TemplateId = '{model.TemplateId}', TestName = '{model.testName}', Notes = '{model.notes}', [status] = '{model.status}' where TestId = '{model.TestId}'";
+                        var qurry = $"update TestCases set TemplateId = '{model.TemplateId}', TestName = '{model.testName.Trim()}', Notes = '{model.notes}', [status] = '{model.status}' where TestId = '{model.TestId}'";
                         _conn.Execute(qurry);
                         res = new { state = true, message = "Test updated successfully" };
                         _conn.Close();
